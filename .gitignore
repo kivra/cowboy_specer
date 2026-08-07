@@ -1,0 +1,13 @@
+*~
+*.beam
+*.app
+*.orig
+.eunit
+.rebar
+.rebar3
+_build/
+doc
+erl_crash.dump
+rebar3.crashdump
+*.swp
+*.swo
