@@ -1,4 +1,4 @@
--module(cbs_job_h).
+-module(cowboy_specer_job_h).
 -moduledoc """
 Fixture: the interesting kind of plain handler.
 
@@ -47,10 +47,10 @@ require_post(Req) ->
     end.
 
 authenticate(Req) ->
-    cbs_secret:check(Req).
+    cowboy_specer_secret:check(Req).
 
 start(Req, State) ->
-    case cbs_secret:start_job() of
+    case cowboy_specer_secret:start_job() of
         ok -> reply(202, accepted, Req, State);
         {error, already_running} -> reply(409, already_running, Req, State)
     end.

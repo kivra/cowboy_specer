@@ -1,4 +1,4 @@
--module(cbs_scan).
+-module(cowboy_specer_scan).
 -moduledoc """
 Static analysis of a `cowboy_rest` handler module.
 
@@ -30,7 +30,7 @@ and `POST` does not report the `POST` handler's query parameters under
 `OPTIONS`.
 
 Prose (summaries, descriptions) and anything a type is needed for (response and
-request body schemas) is *not* guessed — see `cbs_spec` for the
+request body schemas) is *not* guessed — see `cowboy_specer` for the
 `-openapi(...)` attribute and the `-spec`/`-spectra(...)` conventions that
 supply it.
 
@@ -181,7 +181,7 @@ local `reply/5` wrapper, a `match_qs/2` list built at runtime, or an
 Analyses the resource `Module` serves at `Path`.
 
 `Path` is an OpenAPI path template (`/users/{id}`); see
-`cbs_spec:openapi_path/1` for turning a Cowboy path into one.
+`cowboy_specer:openapi_path/1` for turning a Cowboy path into one.
 
 A `cowboy_rest` handler is analysed through its REST callbacks. Any other
 module exporting `init/2` is analysed as a plain `cowboy_handler`: `init/2` is

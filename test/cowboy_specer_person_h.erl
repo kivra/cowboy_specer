@@ -1,4 +1,4 @@
--module(cbs_person_h).
+-module(cowboy_specer_person_h).
 -moduledoc """
 Fixture: a fully annotated `cowboy_rest` resource.
 
@@ -66,7 +66,7 @@ content_types_provided(Req, State) ->
     {[{{~"text", ~"xml", '*'}, to_xml}], Req, State}.
 
 to_xml(Req, State) ->
-    cbs_span:with_span(~"lookup", fun(_) -> verify_query(Req, State) end).
+    cowboy_specer_span:with_span(~"lookup", fun(_) -> verify_query(Req, State) end).
 
 verified_constraint(forward, ~"true") -> {ok, true};
 verified_constraint(forward, ~"false") -> {ok, false};

@@ -1,8 +1,8 @@
--module(cbs_examples_SUITE).
+-module(cowboy_specer_examples_SUITE).
 -moduledoc """
 Runs the example API and checks that it answers what its document says it does.
 
-`cbs_examples_tests` asserts what the examples *document*; this asserts that the
+`cowboy_specer_examples_tests` asserts what the examples *document*; this asserts that the
 handlers actually behave that way. An example whose documented 404 cannot happen
 teaches the reader the wrong thing, and only exercising it catches that.
 """.

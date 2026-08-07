@@ -1,4 +1,4 @@
--module(cbs_probe_h).
+-module(cowboy_specer_probe_h).
 -moduledoc """
 Fixture: the simplest plain handler there is -- a liveness probe. No method
 test, no parameters, one literal reply.

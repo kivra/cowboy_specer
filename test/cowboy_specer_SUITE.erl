@@ -1,6 +1,6 @@
--module(cbs_SUITE).
+-module(cowboy_specer_SUITE).
 -moduledoc """
-End-to-end: start a real Cowboy listener from `cbs_spec:routes/2` and fetch the
+End-to-end: start a real Cowboy listener from `cowboy_specer:routes/2` and fetch the
 documentation endpoints over HTTP.
 
 The eunit tests check what the analysis produces; this checks that the routes
@@ -13,7 +13,7 @@ handler routes they were appended to.
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 
--define(LISTENER, cbs_suite_http).
+-define(LISTENER, cowboy_specer_suite_http).
 
 all() ->
     [ serves_openapi_json
@@ -25,10 +25,10 @@ all() ->
 
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started([cowboy, inets]),
-    Routes = cbs_spec:routes(#{title => ~"suite", version => ~"1.0.0"},
-                             [ {"/person", cbs_person_h, #{}}
-                             , {"/widgets/:widget_id", cbs_widget_h, #{}}
-                             , {"/livez", cbs_probe_h, #{}}
+    Routes = cowboy_specer:routes(#{title => ~"suite", version => ~"1.0.0"},
+                             [ {"/person", cowboy_specer_person_h, #{}}
+                             , {"/widgets/:widget_id", cowboy_specer_widget_h, #{}}
+                             , {"/livez", cowboy_specer_probe_h, #{}}
                              ]),
     Dispatch = cowboy_router:compile([{'_', Routes}]),
     {ok, _} = cowboy:start_clear(?LISTENER, [{port, 0}],

@@ -1,4 +1,4 @@
--module(cbs_hidden_h).
+-module(cowboy_specer_hidden_h).
 -moduledoc "Fixture: a handler that opts out of the document.".
 
 -behaviour(cowboy_handler).

@@ -1,9 +1,9 @@
--module(cbs_docs_h).
+-module(cowboy_specer_docs_h).
 -moduledoc """
 Serves the generated OpenAPI document and the two browser UIs.
 
 The document is baked into the route's initial state by
-`cbs_spec:routes/2,3`, so a request does no work beyond writing it out.
+`cowboy_specer:routes/2,3`, so a request does no work beyond writing it out.
 The UI pages are a handful of bytes of HTML that load Swagger UI or Redoc from a
 CDN and point it at the document's URL -- there is no bundled asset to keep in
 step with anything.

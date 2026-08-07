@@ -1,4 +1,4 @@
--module(cbs_spec).
+-module(cowboy_specer).
 -moduledoc """
 Generate an OpenAPI 3.1 document from Cowboy handler modules.
 
@@ -14,12 +14,12 @@ existing route list can be passed in unchanged:
              , {"/widgets/:id", my_widget_h, #{}}
              ],
     Meta = #{title => ~"My API", version => ~"2.0.0"},
-    {ok, Json} = cbs_spec:openapi(Meta, Routes).
+    {ok, Json} = cowboy_specer:openapi(Meta, Routes).
 
 `routes/2` does the same and hands back a route list with `/openapi.json`,
 `/swagger` and `/redoc` appended, ready for `cowboy_router:compile/1`:
 
-    Dispatch = cowboy_router:compile([{'_', cbs_spec:routes(Meta, Routes)}]),
+    Dispatch = cowboy_router:compile([{'_', cowboy_specer:routes(Meta, Routes)}]),
     {ok, _} = cowboy:start_clear(http, [{port, 8080}], #{env => #{dispatch => Dispatch}}).
 
 The document is built once, when you call this, and served from a binary.
@@ -28,7 +28,7 @@ The document is built once, when you call this, and served from a binary.
 
 The *shape* is inferred: methods, query/path/header/cookie parameters and their
 types, status codes, content types, and whether a bearer token is needed. See
-`cbs_scan` for exactly which construct each fact is read from.
+`cowboy_specer_scan` for exactly which construct each fact is read from.
 
 A plain `cowboy_handler` has less to read -- no `allowed_methods/2` and no
 content negotiation -- so it is documented from what `init/2` reaches: the
@@ -137,7 +137,7 @@ The OpenAPI 3.1 document for the `cowboy_rest` handlers in `Routes`.
 -spec openapi(spectra_openapi:openapi_metadata(), [route()], options()) ->
           {ok, iodata()} | {error, [spectra:error()]}.
 openapi(MetaData, Routes, Opts) ->
-    cbs_openapi:generate(MetaData, resources(Routes, Opts), Opts).
+    cowboy_specer_openapi:generate(MetaData, resources(Routes, Opts), Opts).
 
 -doc "Equivalent to `routes(MetaData, Routes, #{})`.".
 -spec routes(spectra_openapi:openapi_metadata(), [route()]) -> [route()].
@@ -161,7 +161,7 @@ routes(MetaData, Routes, Opts) ->
     end.
 
 -doc "Equivalent to `resources(Routes, #{})`.".
--spec resources([route()]) -> [cbs_scan:resource()].
+-spec resources([route()]) -> [cowboy_specer_scan:resource()].
 resources(Routes) ->
     resources(Routes, #{}).
 
@@ -171,7 +171,7 @@ The analysed `cowboy_rest` resources behind `Routes`, in route order.
 Exposed for inspecting or post-processing what was found before it is turned
 into a document.
 """.
--spec resources([route()], options()) -> [cbs_scan:resource()].
+-spec resources([route()], options()) -> [cowboy_specer_scan:resource()].
 resources(Routes, Opts) ->
     Plain = maps:get(plain_handlers, Opts, true),
     [R || Route <- Routes, {ok, R} <- [resource(Route)], wanted(R, Plain)].
@@ -202,7 +202,7 @@ openapi_segment(Segment) -> Segment.
 resource(Route) ->
     {Path, Module} = path_and_module(Route),
     {module, Module} = code:ensure_loaded(Module),
-    cbs_scan:resource(openapi_path(Path), Module).
+    cowboy_specer_scan:resource(openapi_path(Path), Module).
 
 path_and_module({Path, Module}) when is_atom(Module) ->
     {Path, Module};
@@ -217,14 +217,14 @@ doc_routes(Json, Opts) ->
                   undefined -> ?DEFAULT_JSON_PATH;
                   P -> P
               end,
-    [{JsonPath, cbs_docs_h, {json, Json}} || JsonPath =/= undefined] ++
+    [{JsonPath, cowboy_specer_docs_h, {json, Json}} || JsonPath =/= undefined] ++
         ui_route(swagger, swagger_path, ?DEFAULT_SWAGGER_PATH, SpecUrl, Opts) ++
         ui_route(redoc, redoc_path, ?DEFAULT_REDOC_PATH, SpecUrl, Opts).
 
 ui_route(UI, Key, Default, SpecUrl, Opts) ->
     case path(Key, Default, Opts) of
         undefined -> [];
-        Path -> [{Path, cbs_docs_h, {UI, list_to_binary(SpecUrl)}}]
+        Path -> [{Path, cowboy_specer_docs_h, {UI, list_to_binary(SpecUrl)}}]
     end.
 
 -spec path(atom(), iodata(), options()) -> string() | undefined.

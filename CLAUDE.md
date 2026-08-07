@@ -25,8 +25,8 @@ Toolchain pinned in `.tool-versions` (Erlang 29.0.2, rebar 3.27.0); CI uses
 Run one eunit test or one CT case:
 
 ```
-rebar3 eunit --module=cbs_tests
-rebar3 ct --suite test/cbs_SUITE --case serves_openapi_json
+rebar3 eunit --module=cowboy_specer_tests
+rebar3 ct --suite test/cowboy_specer_SUITE --case serves_openapi_json
 ```
 
 ## Architecture
@@ -34,18 +34,18 @@ rebar3 ct --suite test/cbs_SUITE --case serves_openapi_json
 Four modules, no processes, no application callback — it is a pure function from
 a route list to a JSON document.
 
-- `cbs_spec` — the entire public API. Everything else is internal.
-- `cbs_scan` — reads one handler module's abstract code into a `resource()`: its
+- `cowboy_specer` — the entire public API. Everything else is internal.
+- `cowboy_specer_scan` — reads one handler module's abstract code into a `resource()`: its
   kind (`rest` | `plain`), methods, content types, and a per-method `operation()`
   carrying parameters, replies, implied statuses and whether a token is needed.
-- `cbs_openapi` — turns `resource()`s into `spectra_openapi` endpoint specs and
+- `cowboy_specer_openapi` — turns `resource()`s into `spectra_openapi` endpoint specs and
   calls `spectra_openapi:endpoints_to_openapi/2`. Owns where prose and body
-  *types* come from, which `cbs_scan` deliberately says nothing about.
-- `cbs_docs_h` — a Cowboy handler serving the document and the two UI pages. The
+  *types* come from, which `cowboy_specer_scan` deliberately says nothing about.
+- `cowboy_specer_docs_h` — a Cowboy handler serving the document and the two UI pages. The
   HTML is inlined rather than in `priv/`, so the library has no `priv_dir`
   dependency and stays a file move away from anywhere else.
 
-### The two rules that keep `cbs_scan` honest
+### The two rules that keep `cowboy_specer_scan` honest
 
 1. **It never executes anything.** `literal/1` folds constants and nothing else;
    a form containing a variable or a call is simply not a literal. Arithmetic is
@@ -76,16 +76,16 @@ anything at all.
 - Per-operation `security` is still not expressible in spectra's endpoint spec.
   An operation needing a token says so in its description instead; document-level
   `security` is only set when *every* operation needs one. If spectra grows the
-  key, `cbs_openapi:with_security/3` and `with_auth_note/2` are what change.
+  key, `cowboy_specer_openapi:with_security/3` and `with_auth_note/2` are what change.
 - The test fixtures in `test/` are the specification of the analysis. Each one
-  exists for a shape: `cbs_person_h` (annotated `cowboy_rest`, custom constraint
-  fun, auth header), `cbs_widget_h` (three methods, path binding, `{created,_}`),
-  `cbs_bare_h` (no annotations, `OPTIONS`+`POST`), `cbs_open_h` (an
-  `is_authorized/2` that always says yes), `cbs_probe_h` (trivial plain handler),
-  `cbs_job_h` (plain, method dispatch through a reply wrapper), `cbs_hidden_h`
+  exists for a shape: `cowboy_specer_person_h` (annotated `cowboy_rest`, custom constraint
+  fun, auth header), `cowboy_specer_widget_h` (three methods, path binding, `{created,_}`),
+  `cowboy_specer_bare_h` (no annotations, `OPTIONS`+`POST`), `cowboy_specer_open_h` (an
+  `is_authorized/2` that always says yes), `cowboy_specer_probe_h` (trivial plain handler),
+  `cowboy_specer_job_h` (plain, method dispatch through a reply wrapper), `cowboy_specer_hidden_h`
   (opts out). Adding an inference means adding or extending a fixture, not
   asserting against a handler in some other repo.
-- `cbs_span` and `cbs_secret` are separate modules on purpose: the scanner does
+- `cowboy_specer_span` and `cowboy_specer_secret` are separate modules on purpose: the scanner does
   not cross module boundaries, and both fixtures depend on it not doing so.
 - A `cowboy_rest` provide callback returns the **encoded** body. So the
   spec-return route to a 200 schema only reaches handlers whose body is already
@@ -98,6 +98,6 @@ anything at all.
 - `examples/` is a runnable pet-store API (`rebar3 as examples shell`, then
   `ex_server:start()`). It is compiled under the `test` and `examples` profiles
   only, via `extra_src_dirs`, so it never ships in the library's `ebin`.
-  `test/cbs_examples_tests.erl` asserts the document it generates — an example
+  `test/cowboy_specer_examples_tests.erl` asserts the document it generates — an example
   that stops matching its own comments fails CI, which is the only way examples
   stay true. Keep them realistic: they are what a reader copies.

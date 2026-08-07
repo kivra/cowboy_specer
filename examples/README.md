@@ -22,7 +22,7 @@ docs should not be public:
 ```
 
 `examples/` is compiled only under the `examples` and `test` profiles, so it
-never ships in the library's `ebin`. `test/cbs_examples_tests.erl` asserts what
+never ships in the library's `ebin`. `test/cowboy_specer_examples_tests.erl` asserts what
 the example API generates, so an example that stops matching its own comments
 fails CI.
 
@@ -30,7 +30,7 @@ fails CI.
 
 | Module | Route | Shows |
 |--------|-------|-------|
-| `ex_server` | — | the whole of the wiring: a plain route list, `cbs_spec:routes/2`, `cowboy:start_clear/3` |
+| `ex_server` | — | the whole of the wiring: a plain route list, `cowboy_specer:routes/2`, `cowboy:start_clear/3` |
 | `ex_pets_h` | `/pets` | the fully annotated resource — a record as a response schema, a map type as a request body, an `int` query constraint with a default, `{created, URI}` → 201 |
 | `ex_pet_h` | `/pets/{petId}` | a path parameter, a remote type (`ex_pets_h:pet()`) resolving to a shared component, bearer auth recognised from the `authorization` header |
 | `ex_minimal_h` | `/minimal` | **no annotations at all** — the contrast that shows how much comes for free |

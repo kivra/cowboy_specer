@@ -1,6 +1,6 @@
--module(cbs_openapi).
+-module(cowboy_specer_openapi).
 -moduledoc """
-Turns the resources found by `cbs_scan` into an OpenAPI 3.1
+Turns the resources found by `cowboy_specer_scan` into an OpenAPI 3.1
 document, using `spectra_openapi` to do the actual assembly and JSON Schema
 generation.
 
@@ -59,13 +59,13 @@ description and `string` as their schema, which is exactly right for the
            security_scheme_name => binary()
          }.
 
-%% A `cbs_scan:operation()` with the method's `-openapi(...)`
+%% A `cowboy_specer_scan:operation()` with the method's `-openapi(...)`
 %% overrides added under `attr`, so every step of the assembly can reach them
 %% without also being handed the resource.
 -type op() :: #{ method := binary()
                , callback := atom() | undefined
-               , parameters := [cbs_scan:param()]
-               , replies := #{100..599 => cbs_scan:reply()}
+               , parameters := [cowboy_specer_scan:param()]
+               , replies := #{100..599 => cowboy_specer_scan:reply()}
                , implied := [100..599]
                , auth := boolean()
                , request_body := boolean()
@@ -86,7 +86,7 @@ description and `string` as their schema, which is exactly right for the
 
 -doc "Equivalent to `generate(MetaData, Resources, #{})`.".
 -spec generate(spectra_openapi:openapi_metadata(),
-               [cbs_scan:resource()]) ->
+               [cowboy_specer_scan:resource()]) ->
           {ok, iodata()} | {error, [spectra:error()]}.
 generate(MetaData, Resources) ->
     generate(MetaData, Resources, #{}).
@@ -100,7 +100,7 @@ what this module would add, so a caller that wants to describe its own security
 schemes can.
 """.
 -spec generate(spectra_openapi:openapi_metadata(),
-               [cbs_scan:resource()], options()) ->
+               [cowboy_specer_scan:resource()], options()) ->
           {ok, iodata()} | {error, [spectra:error()]}.
 generate(MetaData, Resources, Opts) ->
     Endpoints = lists:append([endpoints(R, Opts) || R <- Resources]),
@@ -108,7 +108,7 @@ generate(MetaData, Resources, Opts) ->
       with_security(MetaData, Resources, Opts), Endpoints).
 
 -doc "The `spectra_openapi` endpoint specs for one resource, one per method.".
--spec endpoints(cbs_scan:resource(), options()) ->
+-spec endpoints(cowboy_specer_scan:resource(), options()) ->
           [spectra_openapi:endpoint_spec()].
 endpoints(#{operations := Operations} = Resource, Opts) ->
     [endpoint(Resource, Op, Opts)
@@ -135,7 +135,7 @@ method_atom(~"OPTIONS") -> options.
 
 %%%_ * Documentation ---------------------------------------------------
 
--spec doc(cbs_scan:resource(), op()) -> spectra_openapi:endpoint_doc().
+-spec doc(cowboy_specer_scan:resource(), op()) -> spectra_openapi:endpoint_doc().
 doc(Resource, #{auth := Auth} = Op) ->
     Attr = method_attr_of(Op),
     Spec = callback_doc(Resource, Op),

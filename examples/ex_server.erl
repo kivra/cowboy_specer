@@ -7,7 +7,7 @@ Wiring: the whole of what using `cowboy_specer` looks like.
     Serving http://localhost:8080/swagger
 
 `routes/0` is an ordinary Cowboy route list -- the handlers know nothing about
-any of this. `cbs_spec:routes/2` reads them and hands back the same list with
+any of this. `cowboy_specer:routes/2` reads them and hands back the same list with
 `/openapi.json`, `/swagger` and `/redoc` appended.
 """.
 
@@ -32,7 +32,7 @@ start(Port) ->
     %% The document is built here, once, and served from a binary -- so a
     %% handler the analysis cannot make sense of fails the boot rather than the
     %% docs.
-    Dispatch = cowboy_router:compile([{'_', cbs_spec:routes(metadata(), routes())}]),
+    Dispatch = cowboy_router:compile([{'_', cowboy_specer:routes(metadata(), routes())}]),
     Result = cowboy:start_clear(?LISTENER, [{port, Port}],
                                 #{env => #{dispatch => Dispatch}}),
     io:format("Serving http://localhost:~p/swagger~n", [Port]),
@@ -43,7 +43,7 @@ stop() ->
     cowboy:stop_listener(?LISTENER).
 
 -doc "A plain Cowboy route list. Nothing here is specific to `cowboy_specer`.".
--spec routes() -> [cbs_spec:route()].
+-spec routes() -> [cowboy_specer:route()].
 routes() ->
     [ {"/healthz", ex_health_h, #{}}
     , {"/minimal", ex_minimal_h, #{}}
@@ -68,6 +68,6 @@ at build time and check the result in, so an API change shows up as a diff.
 """.
 -spec write_document(file:filename_all()) -> ok.
 write_document(File) ->
-    {ok, Document} = cbs_spec:openapi(metadata(), routes()),
+    {ok, Document} = cowboy_specer:openapi(metadata(), routes()),
     Pretty = json:format(json:decode(iolist_to_binary(Document))),
     file:write_file(File, Pretty).

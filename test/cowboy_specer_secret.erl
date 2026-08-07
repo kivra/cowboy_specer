@@ -1,4 +1,4 @@
--module(cbs_secret).
+-module(cowboy_specer_secret).
 -moduledoc """
 Stand-in for the helper module a plain handler authenticates through. Lives
 outside the handler on purpose: the scanner does not cross module boundaries,

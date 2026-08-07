@@ -1,4 +1,4 @@
--module(cbs_examples_tests).
+-module(cowboy_specer_examples_tests).
 -moduledoc """
 Keeps `examples/` honest.
 
@@ -12,7 +12,7 @@ left to be discovered by a reader.
 -define(TEMPDIR, case os:getenv("TMPDIR") of false -> "/tmp"; Dir -> Dir end).
 
 document() ->
-    {ok, Json} = cbs_spec:openapi(ex_server:metadata(), ex_server:routes()),
+    {ok, Json} = cowboy_specer:openapi(ex_server:metadata(), ex_server:routes()),
     json:decode(iolist_to_binary(Json)).
 
 paths() ->
@@ -109,7 +109,7 @@ reindex_test_() ->
 %%%_ * Writing the document to a file ----------------------------------
 
 write_document_test() ->
-    File = filename:join(?TEMPDIR, "cbs_examples_openapi.json"),
+    File = filename:join(?TEMPDIR, "cowboy_specer_examples_openapi.json"),
     ok = ex_server:write_document(File),
     {ok, Written} = file:read_file(File),
     ok = file:delete(File),

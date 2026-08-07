@@ -15,7 +15,7 @@ generation and the OpenAPI assembly.
 Routes = [ {"/livez", my_liveness_h, #{}}
          , {"/widgets/:id", my_widget_h, #{}}
          ],
-{ok, Json} = cbs_spec:openapi(#{title => ~"My API", version => ~"2.0.0"}, Routes).
+{ok, Json} = cowboy_specer:openapi(#{title => ~"My API", version => ~"2.0.0"}, Routes).
 ```
 
 ## Contents
@@ -67,7 +67,7 @@ wrapper. See [examples/README.md](examples/README.md).
 ```erlang
 start() ->
     MetaData = #{title => ~"My API", version => ~"2.0.0"},
-    Routes = cbs_spec:routes(MetaData, my_app:routes()),
+    Routes = cowboy_specer:routes(MetaData, my_app:routes()),
     Dispatch = cowboy_router:compile([{'_', Routes}]),
     cowboy:start_clear(http, [{port, 8080}], #{env => #{dispatch => Dispatch}}).
 ```
@@ -89,7 +89,7 @@ outbound network access from the *browser*, not from your node.
 Or skip the endpoints entirely and write the document to a file at build time:
 
 ```erlang
-{ok, Json} = cbs_spec:openapi(MetaData, my_app:routes()),
+{ok, Json} = cowboy_specer:openapi(MetaData, my_app:routes()),
 ok = file:write_file("openapi.json", json:format(json:decode(iolist_to_binary(Json)))).
 ```
 
@@ -310,9 +310,9 @@ as used — which it is: it is part of the resource's interface.
 
 ## API reference
 
-All of it is in `cbs_spec`.
+All of it is in `cowboy_specer`.
 
-### `cbs_spec:openapi(MetaData, Routes)` / `openapi(MetaData, Routes, Options)`
+### `cowboy_specer:openapi(MetaData, Routes)` / `openapi(MetaData, Routes, Options)`
 
 ```erlang
 -spec openapi(spectra_openapi:openapi_metadata(), [route()], options()) ->
@@ -328,7 +328,7 @@ A `route()` is a path-level Cowboy route — `{Path, Handler}` or
 `{Path, Handler, InitialState}`. Paths may be Cowboy's `"/widgets/:id"` or
 OpenAPI's `"/widgets/{id}"`; both work.
 
-### `cbs_spec:routes(MetaData, Routes)` / `routes(MetaData, Routes, Options)`
+### `cowboy_specer:routes(MetaData, Routes)` / `routes(MetaData, Routes, Options)`
 
 ```erlang
 -spec routes(spectra_openapi:openapi_metadata(), [route()], options()) -> [route()].
@@ -338,24 +338,24 @@ OpenAPI's `"/widgets/{id}"`; both work.
 `{openapi_generation_failed, Errors}` rather than starting a listener that would
 serve a broken document.
 
-### `cbs_spec:resources(Routes)` / `resources(Routes, Options)`
+### `cowboy_specer:resources(Routes)` / `resources(Routes, Options)`
 
 ```erlang
--spec resources([route()], options()) -> [cbs_scan:resource()].
+-spec resources([route()], options()) -> [cowboy_specer_scan:resource()].
 ```
 
 The analysis, before it becomes a document. This is the thing to look at when an
 endpoint comes out wrong:
 
 ```erlang
-1> [R] = cbs_spec:resources([{"/widgets/:id", my_widget_h, #{}}]).
+1> [R] = cowboy_specer:resources([{"/widgets/:id", my_widget_h, #{}}]).
 2> maps:get(operations, R).
 #{~"GET" => #{method => ~"GET", callback => to_json, auth => false,
               parameters => [...], replies => #{400 => ...}, implied => [200],
               request_body => false}}
 ```
 
-### `cbs_spec:openapi_path(Path)`
+### `cowboy_specer:openapi_path(Path)`
 
 ```erlang
 -spec openapi_path(iodata()) -> binary().
@@ -407,12 +407,12 @@ module compiled without `debug_info` raises
 
 | Module | Does |
 |--------|------|
-| `cbs_spec` | the API |
-| `cbs_scan` | abstract-code analysis of one handler into a `resource()` |
-| `cbs_openapi` | `resource()` list into an OpenAPI document, via `spectra_openapi` |
-| `cbs_docs_h` | serves `/openapi.json`, `/swagger`, `/redoc` |
+| `cowboy_specer` | the API; everything else is internal |
+| `cowboy_specer_scan` | abstract-code analysis of one handler into a `resource()` |
+| `cowboy_specer_openapi` | `resource()` list into an OpenAPI document, via `spectra_openapi` |
+| `cowboy_specer_docs_h` | serves `/openapi.json`, `/swagger`, `/redoc` |
 
-`cbs_scan` never executes anything from the module it reads: constant folding
+`cowboy_specer_scan` never executes anything from the module it reads: constant folding
 only folds constants, and a form containing a variable or a call is simply not a
 literal.
 
@@ -441,7 +441,7 @@ examples are verified by CI without shipping in the library's `ebin`.
 `test/` holds a handler fixture per shape the analysis has to cope with — an
 annotated `cowboy_rest` resource, an unannotated one, a three-method JSON
 resource, an open resource declaring `is_authorized/2`, a liveness probe, and a
-plain handler that dispatches on method through a reply wrapper. `cbs_SUITE`
+plain handler that dispatches on method through a reply wrapper. `cowboy_specer_SUITE`
 starts a real Cowboy listener and fetches the documentation endpoints over HTTP.
 
 ## Licence

@@ -1,4 +1,4 @@
--module(cbs_tests).
+-module(cowboy_specer_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -7,23 +7,23 @@
 %%%_ * Path conversion -------------------------------------------------
 
 openapi_path_test_() ->
-    [ ?_assertEqual(~"/v2/person", cbs_spec:openapi_path("/v2/person"))
-    , ?_assertEqual(~"/widgets/{id}", cbs_spec:openapi_path("/widgets/:id"))
-    , ?_assertEqual(~"/a/{b}/c/{d}", cbs_spec:openapi_path(~"/a/:b/c/:d"))
+    [ ?_assertEqual(~"/v2/person", cowboy_specer:openapi_path("/v2/person"))
+    , ?_assertEqual(~"/widgets/{id}", cowboy_specer:openapi_path("/widgets/:id"))
+    , ?_assertEqual(~"/a/{b}/c/{d}", cowboy_specer:openapi_path(~"/a/:b/c/:d"))
       %% Already an OpenAPI template.
-    , ?_assertEqual(~"/widgets/{id}", cbs_spec:openapi_path("/widgets/{id}"))
+    , ?_assertEqual(~"/widgets/{id}", cowboy_specer:openapi_path("/widgets/{id}"))
       %% A catch-all contributes nothing to the template.
-    , ?_assertEqual(~"/static", cbs_spec:openapi_path("/static/[...]"))
-    , ?_assertEqual(~"/", cbs_spec:openapi_path("/"))
+    , ?_assertEqual(~"/static", cowboy_specer:openapi_path("/static/[...]"))
+    , ?_assertEqual(~"/", cowboy_specer:openapi_path("/"))
     ].
 
 %%%_ * Scanning an annotated cowboy_rest resource ----------------------
 
 person_scan_test_() ->
-    Op = operation(cbs_person_h, "/person", ~"GET"),
+    Op = operation(cowboy_specer_person_h, "/person", ~"GET"),
     [ {"only the method allowed_methods/2 returns",
-       ?_assertEqual([~"GET"], methods(cbs_person_h, "/person"))}
-    , ?_assertEqual(rest, kind(cbs_person_h, "/person"))
+       ?_assertEqual([~"GET"], methods(cowboy_specer_person_h, "/person"))}
+    , ?_assertEqual(rest, kind(cowboy_specer_person_h, "/person"))
     , {"the provide callback is found",
        ?_assertEqual(to_xml, maps:get(callback, Op))}
     , {"reading the authorization header means bearer auth",
@@ -52,8 +52,8 @@ person_scan_test_() ->
     ].
 
 person_openapi_test_() ->
-    Get = operation_json(cbs_person_h, "/person", ~"get"),
-    Doc = document([{"/person", cbs_person_h, #{}}]),
+    Get = operation_json(cowboy_specer_person_h, "/person", ~"get"),
+    Doc = document([{"/person", cowboy_specer_person_h, #{}}]),
     [ {"the -spectra summary on the provide callback becomes the summary",
        ?_assertEqual(~"Look up a person by SSN", maps:get(~"summary", Get))}
     , {"the -openapi operationId is used",
@@ -86,9 +86,9 @@ person_openapi_test_() ->
 %%%_ * Per-method attribution ------------------------------------------
 
 per_method_facts_test_() ->
-    Get = operation(cbs_widget_h, "/widgets/:widget_id", ~"GET"),
-    Post = operation(cbs_widget_h, "/widgets/:widget_id", ~"POST"),
-    Delete = operation(cbs_widget_h, "/widgets/:widget_id", ~"DELETE"),
+    Get = operation(cowboy_specer_widget_h, "/widgets/:widget_id", ~"GET"),
+    Post = operation(cowboy_specer_widget_h, "/widgets/:widget_id", ~"POST"),
+    Delete = operation(cowboy_specer_widget_h, "/widgets/:widget_id", ~"DELETE"),
     [ {"cowboy_req:binding/2 is a required path parameter",
        ?_assertMatch(#{in := path, required := true},
                      param(Get, path, ~"widget_id"))}
@@ -116,7 +116,7 @@ per_method_facts_test_() ->
 widget_openapi_test_() ->
     Path = maps:get(~"/widgets/{widget_id}",
                     maps:get(~"paths",
-                             document([{"/widgets/:widget_id", cbs_widget_h, #{}}]))),
+                             document([{"/widgets/:widget_id", cowboy_specer_widget_h, #{}}]))),
     [ {"the Cowboy path became an OpenAPI template",
        ?_assertEqual([~"delete", ~"get", ~"post"], lists:sort(maps:keys(Path)))}
     , {"the <<\"application/json\">> shorthand content type is understood",
@@ -139,15 +139,15 @@ widget_openapi_test_() ->
     , {"nothing reads an authorization header, so no security scheme",
        ?_assertNot(maps:is_key(~"securitySchemes",
                                maps:get(~"components",
-                                        document([{"/w", cbs_widget_h, #{}}]))))}
+                                        document([{"/w", cowboy_specer_widget_h, #{}}]))))}
     ].
 
 %%%_ * An unannotated resource still documents -------------------------
 
 no_annotations_test_() ->
-    Post = operation(cbs_bare_h, "/bare", ~"POST"),
-    Options = operation(cbs_bare_h, "/bare", ~"OPTIONS"),
-    PostJson = operation_json(cbs_bare_h, "/bare", ~"post"),
+    Post = operation(cowboy_specer_bare_h, "/bare", ~"POST"),
+    Options = operation(cowboy_specer_bare_h, "/bare", ~"OPTIONS"),
+    PostJson = operation_json(cowboy_specer_bare_h, "/bare", ~"post"),
     [ ?_assertMatch(#{required := true}, param(Post, query, ~"ssn"))
     , {"OPTIONS reaches none of the POST handler's code",
        ?_assertEqual([], maps:get(parameters, Options))}
@@ -168,22 +168,22 @@ no_annotations_test_() ->
 
 %%%_ * is_authorized/2 -------------------------------------------------
 
-%% cbs_open_h implements is_authorized/2 but answers {true, _, _} in every
+%% cowboy_specer_open_h implements is_authorized/2 but answers {true, _, _} in every
 %% clause, which is how a resource declares the callback while staying open.
 %% Reporting it as authenticated would be a lie.
 always_authorized_is_not_auth_test_() ->
-    Op = operation(cbs_open_h, "/metrics", ~"GET"),
-    Get = operation_json(cbs_open_h, "/metrics", ~"get"),
+    Op = operation(cowboy_specer_open_h, "/metrics", ~"GET"),
+    Get = operation_json(cowboy_specer_open_h, "/metrics", ~"get"),
     [ ?_assertNot(maps:get(auth, Op))
     , ?_assertNot(maps:is_key(~"description", Get))
     , {"with no allowed_methods/2, cowboy's default applies",
-       ?_assertEqual([~"GET", ~"HEAD", ~"OPTIONS"], methods(cbs_open_h, "/metrics"))}
+       ?_assertEqual([~"GET", ~"HEAD", ~"OPTIONS"], methods(cowboy_specer_open_h, "/metrics"))}
     ].
 
 %%%_ * Plain cowboy_handler modules ------------------------------------
 
 plain_handler_test_() ->
-    [Probe] = cbs_spec:resources([{"/livez", cbs_probe_h, #{}}]),
+    [Probe] = cowboy_specer:resources([{"/livez", cowboy_specer_probe_h, #{}}]),
     Op = maps:get(~"GET", maps:get(operations, Probe)),
     [ ?_assertEqual(plain, maps:get(kind, Probe))
     , {"with no cowboy_req:method/1 test, GET is the answer",
@@ -196,12 +196,12 @@ plain_handler_test_() ->
     , {"...and no content negotiation, so no 406",
        ?_assertEqual([~"200"],
                      maps:keys(maps:get(~"responses",
-                                        operation_json(cbs_probe_h, "/livez", ~"get"))))}
+                                        operation_json(cowboy_specer_probe_h, "/livez", ~"get"))))}
     ].
 
-%% Nothing about cbs_job_h is literal at the cowboy_req:reply/4 call site.
+%% Nothing about cowboy_specer_job_h is literal at the cowboy_req:reply/4 call site.
 plain_handler_wrapper_test_() ->
-    [Job] = cbs_spec:resources([{"/jobs/import", cbs_job_h, #{}}]),
+    [Job] = cowboy_specer:resources([{"/jobs/import", cowboy_specer_job_h, #{}}]),
     Op = maps:get(~"POST", maps:get(operations, Job)),
     Replies = maps:get(replies, Op),
     [ {"the cowboy_req:method/1 test gives the method",
@@ -216,26 +216,26 @@ plain_handler_wrapper_test_() ->
        ?_assert(maps:get(auth, Op))}
     , {"the -openapi response schema is used",
        ?_assertEqual(#{~"$ref" => ~"#/components/schemas/JobStatus0"},
-                     schema_of(operation_json(cbs_job_h, "/jobs/import", ~"post"),
+                     schema_of(operation_json(cowboy_specer_job_h, "/jobs/import", ~"post"),
                                ~"202", ~"application/json"))}
     ].
 
 %%%_ * Selecting what to document --------------------------------------
 
 plain_handlers_can_be_excluded_test() ->
-    Routes = [{"/livez", cbs_probe_h, #{}}, {"/person", cbs_person_h, #{}}],
-    Kept = cbs_spec:resources(Routes, #{plain_handlers => false}),
-    ?assertEqual([cbs_person_h], [maps:get(module, R) || R <- Kept]).
+    Routes = [{"/livez", cowboy_specer_probe_h, #{}}, {"/person", cowboy_specer_person_h, #{}}],
+    Kept = cowboy_specer:resources(Routes, #{plain_handlers => false}),
+    ?assertEqual([cowboy_specer_person_h], [maps:get(module, R) || R <- Kept]).
 
 hidden_handlers_are_skipped_test() ->
-    ?assertEqual([], cbs_spec:resources([{"/secret", cbs_hidden_h, #{}}])).
+    ?assertEqual([], cowboy_specer:resources([{"/secret", cowboy_specer_hidden_h, #{}}])).
 
 non_handlers_are_skipped_test() ->
     %% No init/2 at all, so not a Cowboy handler.
-    ?assertEqual([], cbs_spec:resources([{"/nope", cbs_secret, #{}}])).
+    ?assertEqual([], cowboy_specer:resources([{"/nope", cowboy_specer_secret, #{}}])).
 
 implicit_responses_can_be_turned_off_test() ->
-    {ok, Json} = cbs_spec:openapi(?META, [{"/person", cbs_person_h, #{}}],
+    {ok, Json} = cowboy_specer:openapi(?META, [{"/person", cowboy_specer_person_h, #{}}],
                                  #{implicit_responses => false}),
     Get = maps:get(~"get", maps:get(~"/person",
                                     maps:get(~"paths",
@@ -245,12 +245,12 @@ implicit_responses_can_be_turned_off_test() ->
 %%%_ * Documentation routes --------------------------------------------
 
 doc_routes_are_appended_test() ->
-    Routes = cbs_spec:routes(?META, [{"/person", cbs_person_h, #{}}]),
+    Routes = cowboy_specer:routes(?META, [{"/person", cowboy_specer_person_h, #{}}]),
     ?assertEqual(["/person", "/openapi.json", "/swagger", "/redoc"],
                  [P || {P, _Mod, _State} <- Routes]).
 
 doc_routes_can_be_moved_test() ->
-    Routes = cbs_spec:routes(?META, [], #{ json_path => "/docs/spec.json"
+    Routes = cowboy_specer:routes(?META, [], #{ json_path => "/docs/spec.json"
                                          , swagger_path => "/docs"
                                          , redoc_path => undefined
                                          }),
@@ -259,11 +259,11 @@ doc_routes_can_be_moved_test() ->
 %%%_ * Whole documents -------------------------------------------------
 
 document_is_valid_openapi_test_() ->
-    Doc = document([ {"/person", cbs_person_h, #{}}
-                   , {"/widgets/:widget_id", cbs_widget_h, #{}}
-                   , {"/bare", cbs_bare_h, #{}}
-                   , {"/livez", cbs_probe_h, #{}}
-                   , {"/jobs/import", cbs_job_h, #{}}
+    Doc = document([ {"/person", cowboy_specer_person_h, #{}}
+                   , {"/widgets/:widget_id", cowboy_specer_widget_h, #{}}
+                   , {"/bare", cowboy_specer_bare_h, #{}}
+                   , {"/livez", cowboy_specer_probe_h, #{}}
+                   , {"/jobs/import", cowboy_specer_job_h, #{}}
                    ]),
     [ ?_assertEqual(~"3.1.0", maps:get(~"openapi", Doc))
     , ?_assertEqual(#{~"title" => ~"test", ~"version" => ~"1.0.0"},
@@ -285,7 +285,7 @@ metadata_is_passed_through_test() ->
     Meta = maps:merge(?META, #{ description => ~"Everything."
                               , servers => [#{url => ~"https://example.test"}]
                               }),
-    {ok, Json} = cbs_spec:openapi(Meta, [{"/livez", cbs_probe_h, #{}}]),
+    {ok, Json} = cowboy_specer:openapi(Meta, [{"/livez", cowboy_specer_probe_h, #{}}]),
     Doc = json:decode(iolist_to_binary(Json)),
     ?assertEqual([#{~"url" => ~"https://example.test"}], maps:get(~"servers", Doc)),
     ?assertEqual(~"Everything.", maps:get(~"description", maps:get(~"info", Doc))).
@@ -295,16 +295,16 @@ metadata_is_passed_through_test() ->
 module_without_debug_info_test() ->
     %% erlang is preloaded and carries no abstract code.
     ?assertError({module_not_found, erlang, preloaded},
-                 cbs_spec:resources([{"/x", erlang, #{}}])).
+                 cowboy_specer:resources([{"/x", erlang, #{}}])).
 
 %%%_ * Helpers ---------------------------------------------------------
 
 document(Routes) ->
-    {ok, Json} = cbs_spec:openapi(?META, Routes),
+    {ok, Json} = cowboy_specer:openapi(?META, Routes),
     json:decode(iolist_to_binary(Json)).
 
 resource(Module, Path) ->
-    [Resource] = cbs_spec:resources([{Path, Module, #{}}]),
+    [Resource] = cowboy_specer:resources([{Path, Module, #{}}]),
     Resource.
 
 kind(Module, Path) ->
@@ -318,7 +318,7 @@ operation(Module, Path, Method) ->
 
 operation_json(Module, Path, Method) ->
     Document = document([{Path, Module, #{}}]),
-    OpenApiPath = cbs_spec:openapi_path(Path),
+    OpenApiPath = cowboy_specer:openapi_path(Path),
     maps:get(Method, maps:get(OpenApiPath, maps:get(~"paths", Document))).
 
 param(#{parameters := Params}, In, Name) ->

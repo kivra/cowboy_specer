@@ -1,4 +1,4 @@
--module(cbs_open_h).
+-module(cowboy_specer_open_h).
 -moduledoc """
 Fixture: a `cowboy_rest` resource that declares `is_authorized/2` but answers
 `{true, _, _}` in every clause -- the way a metrics endpoint opts *out* of

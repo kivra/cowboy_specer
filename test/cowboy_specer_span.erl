@@ -1,4 +1,4 @@
--module(cbs_span).
+-module(cowboy_specer_span).
 -moduledoc """
 A tracing-style wrapper, as a separate module on purpose.
 

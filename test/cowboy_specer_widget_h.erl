@@ -1,4 +1,4 @@
--module(cbs_widget_h).
+-module(cowboy_specer_widget_h).
 -moduledoc """
 Fixture: a JSON `cowboy_rest` resource serving three methods.
 

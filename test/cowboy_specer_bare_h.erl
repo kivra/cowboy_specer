@@ -1,4 +1,4 @@
--module(cbs_bare_h).
+-module(cowboy_specer_bare_h).
 -moduledoc """
 Fixture: a `cowboy_rest` resource with no annotations whatsoever.
 
@@ -30,7 +30,7 @@ content_types_accepted(Req, State) ->
     {[{{~"text", ~"xml", '*'}, from_xml}], Req, State}.
 
 from_xml(Req, State) ->
-    cbs_span:with_span(~"store", fun(_) -> verify_query(Req, State) end).
+    cowboy_specer_span:with_span(~"store", fun(_) -> verify_query(Req, State) end).
 
 verify_query(Req, State) ->
     try cowboy_req:match_qs([ssn], Req) of
