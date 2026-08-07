@@ -183,3 +183,6 @@ jobs:
             workspace-${{ github.ref }}
       - name: Run Dialyzer
         run: rebar3 dialyzer
+
+      - name: Run Dialyzer over the examples
+        run: rebar3 as examples dialyzer

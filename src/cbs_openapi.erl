@@ -18,17 +18,24 @@ Per operation, in order of precedence:
 
 ## Body types
 
-A response body schema comes from the method's provide callback `-spec`. The
-convention is the `cowboy_rest` return shape:
+The 200's schema comes from the provide callback's `-spec`: the first element of
+any returned 3-tuple that is not a `cowboy_rest` control atom (`stop`, `true`,
+`{created, _}`, ...) is the body's type.
 
     -spec to_xml(cowboy_req:req(), State) ->
               {person_xml(), cowboy_req:req(), State}
             | {stop, cowboy_req:req(), State}.
 
-The first element of any returned 3-tuple that is not a `cowboy_rest` control
-atom (`stop`, `true`, `false`, ...) is the success body's type. Request bodies
-cannot be inferred this way -- `cowboy_rest` hands the accept callback a `Req`,
-not a decoded body -- so they come from
+That reaches as far as the callback's return type is honest, which is as far as
+the body is already a binary -- XML, plain text. A callback that *encodes* can
+only say `iodata()`, so a structured format declares its schema in
+`-openapi(#{get => #{responses => #{200 => #{schema => ...}}}})` instead.
+
+Only 200 is given this schema: `cowboy_rest` sends no body with the statuses it
+derives from a write callback's return.
+
+Request bodies cannot be inferred at all -- `cowboy_rest` hands the accept
+callback a `Req`, not a decoded body -- so they come from
 `-openapi(#{post => #{request_body => #{schema => ...}}})`.
 
 Statuses replied to with a literal binary body get that binary as their
@@ -315,14 +322,19 @@ response_body(Status, Resource, Op, Override) ->
         Schema -> {Schema, response_content_type(Status, Resource, Op, Override)}
     end.
 
-%% 204 and friends carry nothing, whatever else we may know.
+%% The provide callback's body is what a *representation* looks like, so it
+%% belongs to 200 and nothing else. `cowboy_rest` sends no body at all with the
+%% statuses it derives from a write callback's return -- 201 after
+%% `{created, URI}`, 303 after `{see_other, URI}`, 204 after `true` -- and 205
+%% and 304 are bodiless by definition.
 inferred_response_body(Status, _Resource, _Op, _Override)
-  when Status =:= 204; Status =:= 205; Status =:= 304 ->
+  when Status =:= 201; Status =:= 204; Status =:= 205;
+       Status =:= 303; Status =:= 304 ->
     undefined;
 inferred_response_body(Status, Resource, Op, Override) ->
     ContentType = response_content_type(Status, Resource, Op, Override),
     Reply = maps:get(Status, maps:get(replies, Op), #{}),
-    case {is_success(Status, Op), Reply} of
+    case {Status =:= 200, Reply} of
         {true, _} ->
             success_body(Resource, ContentType);
         {false, #{body_text := Text}} ->

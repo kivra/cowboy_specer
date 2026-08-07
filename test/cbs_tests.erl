@@ -122,9 +122,11 @@ widget_openapi_test_() ->
     , {"the <<\"application/json\">> shorthand content type is understood",
        ?_assertEqual(#{~"$ref" => ~"#/components/schemas/Widget0"},
                      schema_of(maps:get(~"get", Path), ~"200", ~"application/json"))}
-    , {"a 201 gets the provide callback's schema, not the accept callback's",
-       ?_assertEqual(#{~"$ref" => ~"#/components/schemas/Widget0"},
-                     schema_of(maps:get(~"post", Path), ~"201", ~"application/json"))}
+      %% cowboy_rest answers {created, URI} with a Location header and no body,
+      %% so claiming one would be wrong however good the provide callback's spec
+      %% is.
+    , {"a 201 from {created, URI} carries no body",
+       ?_assertNot(maps:is_key(~"content", response(maps:get(~"post", Path), ~"201")))}
     , {"the -openapi request_body schema is used",
        ?_assertEqual(#{~"$ref" => ~"#/components/schemas/NewWidget0"},
                      maps:get(~"schema",

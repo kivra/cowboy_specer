@@ -87,3 +87,17 @@ anything at all.
   asserting against a handler in some other repo.
 - `cbs_span` and `cbs_secret` are separate modules on purpose: the scanner does
   not cross module boundaries, and both fixtures depend on it not doing so.
+- A `cowboy_rest` provide callback returns the **encoded** body. So the
+  spec-return route to a 200 schema only reaches handlers whose body is already
+  a binary (XML, text); a JSON handler can only say `iodata()` and declares its
+  schema in `-openapi` instead. Do not "fix" an example to return a term from a
+  provide callback -- it crashes in `cowboy_req:has_resp_body/1`, which is how
+  this was found.
+- Only 200 gets an inferred body. `cowboy_rest` sends none with the statuses it
+  derives from a write callback's return (201, 303, 204).
+- `examples/` is a runnable pet-store API (`rebar3 as examples shell`, then
+  `ex_server:start()`). It is compiled under the `test` and `examples` profiles
+  only, via `extra_src_dirs`, so it never ships in the library's `ebin`.
+  `test/cbs_examples_tests.erl` asserts the document it generates — an example
+  that stops matching its own comments fails CI, which is the only way examples
+  stay true. Keep them realistic: they are what a reader copies.

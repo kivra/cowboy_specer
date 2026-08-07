@@ -1,5 +1,6 @@
 # -*-Make-*-
-.PHONY: default all clean distclean upgrade compile test dialyzer eunit ct xref repl
+.PHONY: default all clean distclean upgrade compile test dialyzer dialyzer-examples \
+        eunit ct xref repl examples
 
 default: compile
 
@@ -19,10 +20,15 @@ upgrade:
 compile:
 	rebar3 compile
 
-test: xref eunit ct dialyzer
+test: xref eunit ct dialyzer dialyzer-examples
 
 dialyzer:
 	rebar3 dialyzer
+
+# examples/ is not in the default profile, so it needs its own run -- an example
+# that no longer type-checks is one someone is about to copy.
+dialyzer-examples:
+	rebar3 as examples dialyzer
 
 eunit:
 	rebar3 eunit
@@ -35,3 +41,7 @@ xref:
 
 repl:
 	rebar3 as test shell
+
+# Run the example API: then ex_server:start().
+examples:
+	rebar3 as examples shell

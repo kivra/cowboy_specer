@@ -21,6 +21,7 @@ Routes = [ {"/livez", my_liveness_h, #{}}
 ## Contents
 
 - [Install](#install)
+- [Examples](#examples)
 - [Serving the document](#serving-the-document)
 - [What is inferred](#what-is-inferred)
 - [What you write](#what-you-write)
@@ -41,6 +42,22 @@ Routes = [ {"/livez", my_liveness_h, #{}}
 
 Your handler modules must be compiled with `debug_info` — the default for
 `rebar3`, but check that you have not turned it off in a production profile.
+
+## Examples
+
+[`examples/`](examples/) is a small pet-store API — ordinary Cowboy handlers with
+`cowboy_specer` bolted on in one place. Run it and browse the result:
+
+```sh
+rebar3 as examples shell
+1> ex_server:start().
+Serving http://localhost:8080/swagger
+```
+
+`ex_pets_h` is the fully annotated resource, `ex_minimal_h` is the same idea with
+no annotations at all so you can see what comes for free, and `ex_reindex_h` is a
+plain `cowboy_handler` whose statuses are only visible through a local reply
+wrapper. See [examples/README.md](examples/README.md).
 
 ## Serving the document
 
@@ -175,11 +192,10 @@ handler that tests the method replies 405 on the branch for the methods it does
 The prose, and any body type. These are not guessed, because a wrong guess in
 published API documentation is worse than a gap.
 
-### A `-spec` on the provide callback
+### A `-spectra(...)` attribute on the provide callback
 
-The type in the body slot of the `cowboy_rest` return tuple is the success
-response's schema. A `-spectra(...)` attribute in front of the spec is the
-operation's summary and description:
+The operation's summary and description come from a `-spectra(...)` attribute in
+front of the callback's `-spec`:
 
 ```erlang
 -spectra(#{ summary => ~"Look up a person by SSN"
@@ -190,11 +206,14 @@ operation's summary and description:
         | {stop, cowboy_req:req(), State}.
 ```
 
-The `cowboy_rest` control atoms — `stop`, `true`, `{created, _}` and friends —
-are skipped, so only the real body type is left.
+### The 200's schema
 
-A named type goes into `components/schemas` under its own name and keeps its own
-documentation, so naming the type is worth it:
+A `cowboy_rest` provide callback returns the **encoded** body, so what its
+`-spec` can honestly say depends on the format.
+
+**When the body is the type** — XML, plain text, anything already a binary by the
+time the callback hands it over — name the type in the spec and it becomes the
+200's schema:
 
 ```erlang
 -spectra(#{ title => ~"Person"
@@ -203,9 +222,32 @@ documentation, so naming the type is worth it:
 -type person_xml() :: binary().
 ```
 
-The body callback is the one from `content_types_provided/2` for *every* method,
-including `POST`: `cowboy_rest` renders a response body through that callback
-whatever the request method was.
+The `cowboy_rest` control atoms — `stop`, `true`, `{created, _}` and friends —
+are skipped, so only the real body type is left. A named type goes into
+`components/schemas` under its own name and keeps its own documentation, so
+naming it is worth it.
+
+**When the body is encoded** — JSON, or anything else with structure — the
+callback returns `iodata()` and there is no structured type in the spec to read.
+Declare the schema instead, and let the same type do both jobs:
+
+```erlang
+-openapi(#{get => #{responses => #{200 => #{schema => {type, pets, 0}}}}}).
+
+to_json(Req, State) ->
+    {ok, Json} = spectra:encode(json, ?MODULE, {type, pets, 0}, list_pets()),
+    {Json, Req, State}.
+```
+
+Encoding through the type that generates the schema is the point: the wire format
+and the documentation cannot drift apart. `examples/ex_pets_h.erl` does exactly
+this.
+
+Only 200 gets this schema. `cowboy_rest` sends no body with the statuses it
+derives from a write callback's return — 201 after `{created, URI}`, 303 after
+`{see_other, URI}`, 204 after `true` — so none of those claim one. The callback
+consulted is always the one from `content_types_provided/2`, whatever the request
+method was.
 
 ### An `-openapi(...)` module attribute
 
@@ -392,6 +434,9 @@ down, and a dozen `cowboy_req:reply/4` calls. So that is what gets read.
 make compile
 make test      # xref, eunit, ct, dialyzer
 ```
+
+`examples/` is compiled under the `test` and `examples` profiles only, so the
+examples are verified by CI without shipping in the library's `ebin`.
 
 `test/` holds a handler fixture per shape the analysis has to cope with — an
 annotated `cowboy_rest` resource, an unannotated one, a three-method JSON
