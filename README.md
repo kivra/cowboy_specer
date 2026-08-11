@@ -306,7 +306,10 @@ Four rules govern how a `parameters` entry meets what the scanner found:
    overrides the scanned parameter with the same `{in, name}` identity if
    there is one, and is added otherwise — a scanned query `id` does not
    swallow a declared header `id`. Unless the entry says more, a declared
-   parameter is an optional `string`.
+   parameter is an optional `string`. The exception is `in => path`, which
+   can only override: the route template is the authority on path
+   parameters, so a `path` declaration naming no template variable is
+   dropped rather than emitted as a parameter OpenAPI forbids.
 3. **Header names compare case-insensitively and are emitted lowercase**,
    matching how the scanner canonicalizes the headers it reads: a declared
    `X-Tenant` overrides a scanned `x-tenant` rather than duplicating it.

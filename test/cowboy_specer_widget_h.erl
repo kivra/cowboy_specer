@@ -42,6 +42,14 @@ not, which is how per-method fact attribution is checked.
                                  #{ description => ~"The widget's identifier."
                                   , required => false
                                   }
+                             %% Not a variable in the route template, so this
+                             %% must be dropped: the template is the authority
+                             %% on path parameters, and emitting one it does
+                             %% not declare would be invalid OpenAPI.
+                           , ~"legacy_id" =>
+                                 #{ in => path
+                                  , description => ~"A path that never was."
+                                  }
                            }
                     }
           , post =>

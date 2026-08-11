@@ -146,6 +146,11 @@ widget_openapi_test_() ->
        ?_assertMatch(#{~"required" := true,
                        ~"description" := ~"The widget's identifier."},
                      parameter_json(maps:get(~"get", Path), ~"widget_id", ~"path"))}
+    , {"a path declaration absent from the route template is dropped",
+       ?_assertEqual([~"page", ~"page", ~"widget_id", ~"x-tenant"],
+                     lists:sort([maps:get(~"name", P)
+                                 || P <- maps:get(~"parameters",
+                                                  maps:get(~"get", Path))]))}
     , {"a declared header matches a scanned one case-insensitively",
        ?_assertMatch(#{~"description" := ~"The tenant to bill."},
                      parameter_json(maps:get(~"get", Path), ~"x-tenant", ~"header"))}
@@ -236,13 +241,15 @@ plain_handler_wrapper_test_() ->
        ?_assertEqual(#{~"$ref" => ~"#/components/schemas/JobStatus0"},
                      schema_of(operation_json(cowboy_specer_job_h, "/jobs/import", ~"post"),
                                ~"202", ~"application/json"))}
-    , {"a parameter the scanner cannot see is added from -openapi",
+    , {"a parameter the scanner cannot see is added from -openapi, and "
+       "without a declared schema it is an optional string",
        ?_assertMatch(#{~"in" := ~"query", ~"required" := false,
-                       ~"description" := ~"Validate the request without starting."},
+                       ~"description" := ~"Validate the request without starting.",
+                       ~"schema" := #{~"type" := ~"string"}},
                      parameter_json(operation_json(cowboy_specer_job_h,
                                                    "/jobs/import", ~"post"),
                                     ~"dry_run"))}
-    , {"...and its declared `in` is honoured, not just the query default",
+    , {"...and a declared header lands in its declared location",
        ?_assertMatch(#{~"in" := ~"header", ~"required" := false},
                      parameter_json(operation_json(cowboy_specer_job_h,
                                                    "/jobs/import", ~"post"),

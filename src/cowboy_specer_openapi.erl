@@ -205,8 +205,17 @@ declared_parameters(Overrides, Scanned) ->
       [ {declared_parameter(Name, Override), Override}
         || Name := Override <- maps:iterator(Overrides, ordered),
            is_map(Override),
-           is_map_key(in, Override),
+           addable(Override),
            not scanned_already(Name, Override, Scanned) ]).
+
+%% Only an entry with an explicit `in` declares a parameter -- and never at
+%% `path`: the route template is the authority on path parameters and the
+%% scanner already seeds every template variable, so an unmatched `path`
+%% declaration could only produce an operation OpenAPI forbids. Path entries
+%% stay override-only.
+addable(#{in := path}) -> false;
+addable(#{in := _In}) -> true;
+addable(_NoLocation) -> false.
 
 %% Two attribute keys can collapse to one canonical identity -- ~"X-Tenant"
 %% and ~"x-tenant" are both {header, ~"x-tenant"} -- and OpenAPI forbids
