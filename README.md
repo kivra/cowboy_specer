@@ -324,9 +324,12 @@ The document, as JSON. `MetaData` goes to
 `version`; `description`, `servers`, `contact`, `license`, `security_schemes` and
 `security` are passed through.
 
-A `route()` is a path-level Cowboy route — `{Path, Handler}` or
-`{Path, Handler, InitialState}`. Paths may be Cowboy's `"/widgets/:id"` or
-OpenAPI's `"/widgets/{id}"`; both work.
+A `route()` is a path-level Cowboy route — `{Path, Handler}`,
+`{Path, Handler, InitialState}` or `{Path, Constraints, Handler, InitialState}`.
+Binding constraints are not read — a path parameter is typed from the handler
+module only — but the form is accepted so an existing route list passes through
+unchanged. Paths may be Cowboy's `"/widgets/:id"` or OpenAPI's
+`"/widgets/{id}"`; both work.
 
 ### `cowboy_specer:routes(MetaData, Routes)` / `routes(MetaData, Routes, Options)`
 
