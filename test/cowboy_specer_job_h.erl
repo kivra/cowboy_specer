@@ -17,15 +17,17 @@ the only evidence.
           , post =>
                 #{ summary => ~"Start the batch job"
                    %% Declaration-only fixture parameters: nothing in this
-                   %% module reads either, which is the point -- a declared
-                   %% parameter the scanner cannot find must be *added*, not
-                   %% just override a found one. `dry_run` exercises the `in`
-                   %% default (query); `X-Request-Id` exercises an explicit
-                   %% `in` and the lowercase canonicalization of header names.
+                   %% module reads either, which is the point -- an entry
+                   %% naming a location is *added* when the scanner found
+                   %% nothing to override. An addition must say where it
+                   %% lives; an entry without `in` can only override, and
+                   %% with nothing scanned here it adds nothing at all.
                  , parameters =>
                        #{ ~"dry_run" =>
-                              #{description =>
-                                    ~"Validate the request without starting."}
+                              #{ in => query
+                               , description =>
+                                     ~"Validate the request without starting."
+                               }
                         , ~"X-Request-Id" =>
                               #{ description => ~"Echoed into the job log."
                                , in => header
@@ -38,6 +40,11 @@ the only evidence.
                               #{ description => ~"A duplicate spelling."
                                , in => header
                                }
+                          %% A third spelling without a location: it may
+                          %% neither add a parameter nor leak its description
+                          %% onto the declared header, whose own entry wins.
+                        , ~"X-Request-ID" =>
+                              #{description => ~"A name-wide note."}
                         }
                  , responses =>
                        #{ 202 => #{ description => ~"The job was started."

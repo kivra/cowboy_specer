@@ -287,12 +287,33 @@ merged.
 | `tags`, `summary`, `description` | top level | defaults for every method |
 | `get`, `post`, `put`, `patch`, `delete`, `head`, `options` | top level | per-method overrides |
 | `summary`, `description`, `operationId`, `tags`, `deprecated`, `externalDocs` | per method | straight into the operation |
-| `parameters` | per method | `#{ParameterName => #{description, schema, required, in}}` — overrides a found parameter, or adds one the scanner cannot see. An entry with an explicit `in` speaks only for that location (`{in, name}` is a parameter's identity); one without overrides the name wherever it was found, or adds a query parameter. Header names compare case-insensitively and are emitted lowercase. Path parameters are always required, whatever `required` says |
+| `parameters` | per method | `#{ParameterName => #{description, schema, required, in}}` — overrides a found parameter or, with `in`, declares one the scanner cannot see; see [Declared parameters](#declared-parameters) |
 | `request_body` | per method | `#{schema, content_type}` |
 | `responses` | per method | `#{StatusCode => #{description, schema, content_type}}` |
 
 A `schema` is anything `spectra_openapi` accepts: `{type, Name, Arity}`,
 `{record, Name}`, or an inline spectra type.
+
+### Declared parameters
+
+Four rules govern how a `parameters` entry meets what the scanner found:
+
+1. **An entry without `in` only overrides.** It applies to the scanned
+   parameter of that name wherever it was found, and adds nothing — an
+   addition must say where it lives, because guessing a location would be a
+   guess in published documentation.
+2. **An entry with `in` declares the parameter at that location.** It
+   overrides the scanned parameter with the same `{in, name}` identity if
+   there is one, and is added otherwise — a scanned query `id` does not
+   swallow a declared header `id`. Unless the entry says more, a declared
+   parameter is an optional `string`.
+3. **Header names compare case-insensitively and are emitted lowercase**,
+   matching how the scanner canonicalizes the headers it reads: a declared
+   `X-Tenant` overrides a scanned `x-tenant` rather than duplicating it.
+4. **Declarations that collapse to the same identity keep the first in key
+   order**, the same rule applied to scanned duplicates — and a path
+   parameter is always required, whatever `required` says, because OpenAPI
+   forbids the alternative.
 
 Request bodies always need declaring — `cowboy_rest` hands the accept callback a
 `Req`, not a decoded body, so there is no type to read. Without a declaration, a

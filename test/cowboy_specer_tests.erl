@@ -247,13 +247,21 @@ plain_handler_wrapper_test_() ->
                      parameter_json(operation_json(cowboy_specer_job_h,
                                                    "/jobs/import", ~"post"),
                                     ~"x-request-id"))}
-    , {"two spellings collapsing to one header keep the first declaration",
+    , {"two spellings collapsing to one header keep the first declaration, "
+       "and a location-less entry cannot leak onto it",
        ?_assertEqual([~"Echoed into the job log."],
                      [maps:get(~"description", P)
                       || P <- maps:get(~"parameters",
                                        operation_json(cowboy_specer_job_h,
                                                       "/jobs/import", ~"post")),
                          maps:get(~"name", P) =:= ~"x-request-id"])}
+    , {"an entry without a location adds nothing",
+       ?_assertEqual([~"dry_run", ~"x-request-id"],
+                     lists:sort([maps:get(~"name", P)
+                                 || P <- maps:get(~"parameters",
+                                                  operation_json(cowboy_specer_job_h,
+                                                                 "/jobs/import",
+                                                                 ~"post"))]))}
     ].
 
 %%%_ * Selecting what to document --------------------------------------

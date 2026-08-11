@@ -179,24 +179,33 @@ method_attr(#{doc := Attr}, Method) ->
 
 %%%_ * Parameters ------------------------------------------------------
 
+%% Scanned parameters are rendered with the override entry that speaks for
+%% them; declared parameters carry the entry they were born from, so a
+%% name-wide entry can never leak onto a declared parameter whose identity it
+%% does not share.
 add_parameters(Endpoint, Module, #{parameters := Params} = Op) ->
     Overrides = maps:get(parameters, method_attr_of(Op), #{}),
-    All = Params ++ declared_parameters(Overrides, Params),
-    lists:foldl(fun(P, Ep) ->
+    Scanned = [ {P, override_for(Name, In, Overrides)}
+                || #{name := Name, in := In} = P <- Params ],
+    All = Scanned ++ declared_parameters(Overrides, Params),
+    lists:foldl(fun({P, Override}, Ep) ->
                         spectra_openapi:with_parameter(
-                          Ep, Module, parameter(P, Overrides))
+                          Ep, Module, parameter(P, Override))
                 end, Endpoint, All).
 
 %% A parameter declared in `-openapi(...)` that the scanner never found -- a
 %% `match_qs/2` list built at runtime, a header read inside a helper module.
 %% The attribute is the documented escape hatch for exactly those, so it must
-%% be able to add a parameter, not only override a found one. `in` defaults to
-%% `query`, and a hand-declared parameter is optional unless it says otherwise.
+%% be able to add a parameter, not only override a found one. An addition
+%% must say where it lives: only an entry with an explicit `in` declares a
+%% parameter, and one without stays what it always was -- an override of a
+%% scanned parameter, adding nothing. Nothing is guessed, not even `query`.
 declared_parameters(Overrides, Scanned) ->
     dedup_declared(
-      [ declared_parameter(Name, Override)
+      [ {declared_parameter(Name, Override), Override}
         || Name := Override <- maps:iterator(Overrides, ordered),
            is_map(Override),
+           is_map_key(in, Override),
            not scanned_already(Name, Override, Scanned) ]).
 
 %% Two attribute keys can collapse to one canonical identity -- ~"X-Tenant"
@@ -208,14 +217,13 @@ dedup_declared(Params) ->
 
 dedup_declared([], _Seen) ->
     [];
-dedup_declared([#{in := In, name := Name} = P | Rest], Seen) ->
+dedup_declared([{#{in := In, name := Name}, _Override} = Pair | Rest], Seen) ->
     case lists:member({In, Name}, Seen) of
         true -> dedup_declared(Rest, Seen);
-        false -> [P | dedup_declared(Rest, [{In, Name} | Seen])]
+        false -> [Pair | dedup_declared(Rest, [{In, Name} | Seen])]
     end.
 
-declared_parameter(Name, Override) ->
-    In = maps:get(in, Override, query),
+declared_parameter(Name, #{in := In} = Override) ->
     #{ name => canonical(In, Name)
      , in => In
      , required => maps:get(required, Override, false)
@@ -224,15 +232,10 @@ declared_parameter(Name, Override) ->
 
 %% {In, Name} is a parameter's identity, so an entry saying `in => header`
 %% collides only with a scanned header of that name -- a scanned query `id`
-%% must not swallow a declared header `id`. An entry that names no location
-%% keeps the wider meaning it always had: it overrides the scanned parameter
-%% of that name wherever it was found, and only becomes a new query parameter
-%% when the name is nowhere to be seen.
+%% must not swallow a declared header `id`.
 scanned_already(Name, #{in := In}, Scanned) ->
     Canonical = canonical(In, Name),
-    lists:any(fun(#{name := N, in := I}) -> {I, N} =:= {In, Canonical} end, Scanned);
-scanned_already(Name, _Override, Scanned) ->
-    lists:any(fun(#{name := N, in := I}) -> N =:= canonical(I, Name) end, Scanned).
+    lists:any(fun(#{name := N, in := I}) -> {I, N} =:= {In, Canonical} end, Scanned).
 
 %% HTTP header names are case-insensitive and the scanner canonicalizes the
 %% ones it finds to lowercase, so a declared header is compared and emitted
@@ -243,8 +246,7 @@ canonical(_In, Name) -> Name.
 
 method_attr_of(#{attr := Attr}) -> Attr.
 
-parameter(#{name := Name, in := In, required := Required} = Param, Overrides) ->
-    Override = override_for(Name, In, Overrides),
+parameter(#{name := Name, in := In, required := Required} = Param, Override) ->
     Schema = maps:get(schema, Override, maps:get(schema, Param)),
     #{ name => Name
      , in => In
@@ -254,9 +256,10 @@ parameter(#{name := Name, in := In, required := Required} = Param, Overrides) ->
      , schema => describe(Schema, parameter_description(Param, Override))
      }.
 
-%% An entry with an explicit `in` speaks only for parameters in that location;
-%% one without stays a name-wide override. `Name` arrives canonical (scanned
-%% headers are lowercased), so header entries are matched case-insensitively.
+%% The entry that speaks for a *scanned* parameter. One with an explicit `in`
+%% only speaks for that location; one without is a name-wide override. `Name`
+%% arrives canonical (scanned headers are lowercased), so header entries are
+%% matched case-insensitively.
 override_for(Name, In, Overrides) ->
     Compatible = [ O || K := O <- maps:iterator(Overrides, ordered),
                         is_map(O),
