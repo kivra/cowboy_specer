@@ -181,10 +181,27 @@ method_attr(#{doc := Attr}, Method) ->
 
 add_parameters(Endpoint, Module, #{parameters := Params} = Op) ->
     Overrides = maps:get(parameters, method_attr_of(Op), #{}),
+    All = Params ++ declared_parameters(Overrides, Params),
     lists:foldl(fun(P, Ep) ->
                         spectra_openapi:with_parameter(
                           Ep, Module, parameter(P, Overrides))
-                end, Endpoint, Params).
+                end, Endpoint, All).
+
+%% A parameter declared in `-openapi(...)` that the scanner never found -- a
+%% `match_qs/2` list built at runtime, a header read inside a helper module.
+%% The attribute is the documented escape hatch for exactly those, so it must
+%% be able to add a parameter, not only override a found one. `in` defaults to
+%% `query`, and a hand-declared parameter is optional unless it says otherwise.
+declared_parameters(Overrides, Scanned) ->
+    Seen = [Name || #{name := Name} <- Scanned],
+    [ #{ name => Name
+       , in => maps:get(in, Override, query)
+       , required => maps:get(required, Override, false)
+       , schema => maps:get(schema, Override, string_type())
+       }
+      || Name := Override <- maps:iterator(Overrides, ordered),
+         is_map(Override),
+         not lists:member(Name, Seen) ].
 
 method_attr_of(#{attr := Attr}) -> Attr.
 

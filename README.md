@@ -287,7 +287,7 @@ merged.
 | `tags`, `summary`, `description` | top level | defaults for every method |
 | `get`, `post`, `put`, `patch`, `delete`, `head`, `options` | top level | per-method overrides |
 | `summary`, `description`, `operationId`, `tags`, `deprecated`, `externalDocs` | per method | straight into the operation |
-| `parameters` | per method | `#{ParameterName => #{description, schema, required}}` |
+| `parameters` | per method | `#{ParameterName => #{description, schema, required, in}}` — overrides a found parameter, or adds one the scanner cannot see (`in` defaults to `query`) |
 | `request_body` | per method | `#{schema, content_type}` |
 | `responses` | per method | `#{StatusCode => #{description, schema, content_type}}` |
 
@@ -379,7 +379,8 @@ path that already uses `{id}` is returned unchanged.
 
 Only what is literal *in the handler module* is seen:
 
-- a `match_qs/2` list built at runtime is invisible;
+- a `match_qs/2` list built at runtime is invisible — declare the parameter in
+  `-openapi(...)` instead;
 - a method test written as `M = cowboy_req:method(Req), case M of ...` is
   invisible; only the direct `case cowboy_req:method(Req) of` and `=:=` forms are
   read;

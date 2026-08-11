@@ -16,6 +16,14 @@ the only evidence.
 -openapi(#{ tags => [~"jobs"]
           , post =>
                 #{ summary => ~"Start the batch job"
+                   %% `dry_run` is read by the job runner in another module,
+                   %% where the scanner cannot see it -- so it is declared by
+                   %% hand, which must *add* the parameter, not just override
+                   %% a found one.
+                 , parameters =>
+                       #{~"dry_run" =>
+                             #{description =>
+                                   ~"Validate the request without starting."}}
                  , responses =>
                        #{ 202 => #{ description => ~"The job was started."
                                   , schema => {type, job_status, 0}

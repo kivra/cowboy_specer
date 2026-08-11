@@ -218,6 +218,12 @@ plain_handler_wrapper_test_() ->
        ?_assertEqual(#{~"$ref" => ~"#/components/schemas/JobStatus0"},
                      schema_of(operation_json(cowboy_specer_job_h, "/jobs/import", ~"post"),
                                ~"202", ~"application/json"))}
+    , {"a parameter the scanner cannot see is added from -openapi",
+       ?_assertMatch(#{~"in" := ~"query", ~"required" := false,
+                       ~"description" := ~"Validate the request without starting."},
+                     parameter_json(operation_json(cowboy_specer_job_h,
+                                                   "/jobs/import", ~"post"),
+                                    ~"dry_run"))}
     ].
 
 %%%_ * Selecting what to document --------------------------------------
