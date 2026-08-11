@@ -274,9 +274,16 @@ override_for(Name, In, Overrides) ->
                         is_map(O),
                         canonical(In, K) =:= Name,
                         location_compatible(In, O) ],
-    case Compatible of
-        [Override | _] -> Override;
-        [] -> #{}
+    %% The most specific entry wins: one naming the location outranks a
+    %% name-wide one, whatever order their keys happen to sort in.
+    case [O || #{in := _} = O <- Compatible] of
+        [Exact | _] ->
+            Exact;
+        [] ->
+            case Compatible of
+                [NameWide | _] -> NameWide;
+                [] -> #{}
+            end
     end.
 
 location_compatible(In, #{in := DeclaredIn}) -> DeclaredIn =:= In;

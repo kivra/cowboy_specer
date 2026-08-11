@@ -151,7 +151,8 @@ widget_openapi_test_() ->
                      lists:sort([maps:get(~"name", P)
                                  || P <- maps:get(~"parameters",
                                                   maps:get(~"get", Path))]))}
-    , {"a declared header matches a scanned one case-insensitively",
+    , {"a declared header matches a scanned one case-insensitively, and the "
+       "location-specific entry outranks the earlier-sorting name-wide alias",
        ?_assertMatch(#{~"description" := ~"The tenant to bill."},
                      parameter_json(maps:get(~"get", Path), ~"x-tenant", ~"header"))}
     , {"...overriding it rather than adding a second spelling",

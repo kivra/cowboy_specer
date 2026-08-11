@@ -38,6 +38,12 @@ not, which is how per-method fact attribution is checked.
                                  #{ in => header
                                   , description => ~"The tenant to bill."
                                   }
+                             %% A name-wide alias for the same scanned header,
+                             %% deliberately spelled to sort *before* the
+                             %% location-specific entry: the entry naming the
+                             %% location must win anyway.
+                           , ~"X-TENANT" =>
+                                 #{description => ~"A name-wide alias."}
                            , ~"widget_id" =>
                                  #{ description => ~"The widget's identifier."
                                   , required => false

@@ -301,7 +301,9 @@ Four rules govern how a `parameters` entry meets what the scanner found:
 1. **An entry without `in` only overrides.** It applies to the scanned
    parameter of that name wherever it was found, and adds nothing — an
    addition must say where it lives, because guessing a location would be a
-   guess in published documentation.
+   guess in published documentation. When both a name-wide entry and one
+   naming the location speak for the same scanned parameter, the more
+   specific one wins.
 2. **An entry with `in` declares the parameter at that location.** It
    overrides the scanned parameter with the same `{in, name}` identity if
    there is one, and is added otherwise — a scanned query `id` does not
