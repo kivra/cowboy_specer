@@ -147,6 +147,10 @@ routes(MetaData, Routes) ->
 -doc """
 `Routes` with the documentation endpoints appended.
 
+Appended, and Cowboy matches in order -- so a catch-all (`"/[...]"`) at the end
+of `Routes` would swallow them. Pass the routes without the catch-all and
+append it yourself afterwards.
+
 Raises `{openapi_generation_failed, Errors}` rather than starting a listener
 that would serve a broken document -- the same reasoning as validating config at
 boot.

@@ -86,6 +86,11 @@ Move or drop any of them with the `json_path`, `swagger_path` and `redoc_path`
 options. Both UI pages fetch the document from a CDN-hosted bundle, so they need
 outbound network access from the *browser*, not from your node.
 
+The documentation routes are *appended*, and Cowboy matches routes in order — so
+a route list ending in a catch-all (`{"/[...]", fallback_h, #{}}`) swallows them
+before they are ever reached. With such a list, call `routes/2,3` on the routes
+*without* the catch-all and append it yourself afterwards.
+
 Or skip the endpoints entirely and write the document to a file at build time:
 
 ```erlang
