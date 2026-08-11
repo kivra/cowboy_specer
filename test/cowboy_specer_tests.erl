@@ -297,6 +297,12 @@ module_without_debug_info_test() ->
     ?assertError({module_not_found, erlang, preloaded},
                  cowboy_specer:resources([{"/x", erlang, #{}}])).
 
+%% A typo'd handler module should name itself, not die in a bare badmatch on
+%% code:ensure_loaded/1.
+unknown_module_is_a_named_error_test() ->
+    ?assertError({module_not_found, no_such_handler_h, nofile},
+                 cowboy_specer:resources([{"/x", no_such_handler_h, #{}}])).
+
 %%%_ * Helpers ---------------------------------------------------------
 
 document(Routes) ->
