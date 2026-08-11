@@ -193,7 +193,6 @@ add_parameters(Endpoint, Module, #{parameters := Params} = Op) ->
 %% be able to add a parameter, not only override a found one. `in` defaults to
 %% `query`, and a hand-declared parameter is optional unless it says otherwise.
 declared_parameters(Overrides, Scanned) ->
-    Seen = [Name || #{name := Name} <- Scanned],
     [ #{ name => Name
        , in => maps:get(in, Override, query)
        , required => maps:get(required, Override, false)
@@ -201,21 +200,40 @@ declared_parameters(Overrides, Scanned) ->
        }
       || Name := Override <- maps:iterator(Overrides, ordered),
          is_map(Override),
-         not lists:member(Name, Seen) ].
+         not scanned_already(Name, Override, Scanned) ].
+
+%% {In, Name} is a parameter's identity, so an entry saying `in => header`
+%% collides only with a scanned header of that name -- a scanned query `id`
+%% must not swallow a declared header `id`. An entry that names no location
+%% keeps the wider meaning it always had: it overrides the scanned parameter
+%% of that name wherever it was found, and only becomes a new query parameter
+%% when the name is nowhere to be seen.
+scanned_already(Name, #{in := In}, Scanned) ->
+    lists:any(fun(#{name := N, in := I}) -> {I, N} =:= {In, Name} end, Scanned);
+scanned_already(Name, _Override, Scanned) ->
+    lists:any(fun(#{name := N}) -> N =:= Name end, Scanned).
 
 method_attr_of(#{attr := Attr}) -> Attr.
 
 parameter(#{name := Name, in := In, required := Required} = Param, Overrides) ->
-    Override = case maps:get(Name, Overrides, #{}) of
-                   M when is_map(M) -> M;
-                   _ -> #{}
-               end,
+    Override = override_for(Name, In, Overrides),
     Schema = maps:get(schema, Override, maps:get(schema, Param)),
     #{ name => Name
      , in => In
-     , required => maps:get(required, Override, Required)
+       %% OpenAPI forbids an optional path parameter, whatever an override
+       %% says.
+     , required => In =:= path orelse maps:get(required, Override, Required)
      , schema => describe(Schema, parameter_description(Param, Override))
      }.
+
+%% An entry with an explicit `in` speaks only for parameters in that location;
+%% one without stays a name-wide override.
+override_for(Name, In, Overrides) ->
+    case maps:get(Name, Overrides, #{}) of
+        #{in := DeclaredIn} when DeclaredIn =/= In -> #{};
+        M when is_map(M) -> M;
+        _NotAMap -> #{}
+    end.
 
 %% OpenAPI would put a query parameter's default in the schema, but spectra's
 %% JSON Schema generator has no `default`, so it goes in the prose where it at

@@ -20,7 +20,23 @@ not, which is how per-method fact attribution is checked.
         ]).
 
 -openapi(#{ tags => [~"widget"]
-          , get => #{summary => ~"Fetch one widget"}
+            %% `page` deliberately reuses a scanned query parameter's name in
+            %% another location: {in, name} is a parameter's identity, so this
+            %% adds a header without touching the query parameter. And
+            %% `widget_id`'s required => false must be ignored -- OpenAPI
+            %% forbids an optional path parameter.
+          , get => #{ summary => ~"Fetch one widget"
+                    , parameters =>
+                          #{ ~"page" =>
+                                 #{ in => header
+                                  , description => ~"Page hint header."
+                                  }
+                           , ~"widget_id" =>
+                                 #{ description => ~"The widget's identifier."
+                                  , required => false
+                                  }
+                           }
+                    }
           , post =>
                 #{ summary => ~"Create a widget"
                  , request_body => #{schema => {type, new_widget, 0}}

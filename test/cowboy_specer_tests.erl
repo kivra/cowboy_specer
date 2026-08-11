@@ -136,6 +136,16 @@ widget_openapi_test_() ->
                                                          maps:get(~"post", Path))))))}
     , {"DELETE's 204 carries no body",
        ?_assertNot(maps:is_key(~"content", response(maps:get(~"delete", Path), ~"204")))}
+    , {"a declared header may reuse a scanned query parameter's name",
+       ?_assertMatch(#{~"in" := ~"header", ~"description" := ~"Page hint header."},
+                     parameter_json(maps:get(~"get", Path), ~"page", ~"header"))}
+    , {"...without touching the query parameter it shares the name with",
+       ?_assertMatch(#{~"in" := ~"query", ~"schema" := #{~"type" := ~"integer"}},
+                     parameter_json(maps:get(~"get", Path), ~"page", ~"query"))}
+    , {"a path parameter stays required whatever the override says",
+       ?_assertMatch(#{~"required" := true,
+                       ~"description" := ~"The widget's identifier."},
+                     parameter_json(maps:get(~"get", Path), ~"widget_id", ~"path"))}
     , {"nothing reads an authorization header, so no security scheme",
        ?_assertNot(maps:is_key(~"securitySchemes",
                                maps:get(~"components",
@@ -338,6 +348,12 @@ param(#{parameters := Params}, In, Name) ->
 
 parameter_json(Operation, Name) ->
     [P] = [P || #{~"name" := N} = P <- maps:get(~"parameters", Operation), N =:= Name],
+    P.
+
+%% Disambiguates when two locations share a parameter name.
+parameter_json(Operation, Name, In) ->
+    [P] = [P || #{~"name" := N, ~"in" := I} = P <- maps:get(~"parameters", Operation),
+                N =:= Name, I =:= In],
     P.
 
 %% The `type` field of an #sp_simple_type{} without depending on the record.

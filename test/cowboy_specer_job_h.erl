@@ -16,11 +16,11 @@ the only evidence.
 -openapi(#{ tags => [~"jobs"]
           , post =>
                 #{ summary => ~"Start the batch job"
-                   %% Both parameters are read elsewhere, where the scanner
-                   %% cannot see them -- so they are declared by hand, which
-                   %% must *add* them, not just override found ones. `dry_run`
-                   %% exercises the `in` default (query); `x-request-id` an
-                   %% explicit `in`.
+                   %% Declaration-only fixture parameters: nothing in this
+                   %% module reads either, which is the point -- a declared
+                   %% parameter the scanner cannot find must be *added*, not
+                   %% just override a found one. `dry_run` exercises the `in`
+                   %% default (query); `x-request-id` an explicit `in`.
                  , parameters =>
                        #{ ~"dry_run" =>
                               #{description =>
