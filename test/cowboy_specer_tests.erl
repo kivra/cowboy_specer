@@ -247,6 +247,13 @@ plain_handler_wrapper_test_() ->
                      parameter_json(operation_json(cowboy_specer_job_h,
                                                    "/jobs/import", ~"post"),
                                     ~"x-request-id"))}
+    , {"two spellings collapsing to one header keep the first declaration",
+       ?_assertEqual([~"Echoed into the job log."],
+                     [maps:get(~"description", P)
+                      || P <- maps:get(~"parameters",
+                                       operation_json(cowboy_specer_job_h,
+                                                      "/jobs/import", ~"post")),
+                         maps:get(~"name", P) =:= ~"x-request-id"])}
     ].
 
 %%%_ * Selecting what to document --------------------------------------

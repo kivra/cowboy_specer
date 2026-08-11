@@ -30,6 +30,14 @@ the only evidence.
                               #{ description => ~"Echoed into the job log."
                                , in => header
                                }
+                          %% Deliberately the same header in another spelling:
+                          %% both canonicalize to `x-request-id`, so only one
+                          %% may reach the document -- the first in key order,
+                          %% which is `X-Request-Id` (uppercase sorts first).
+                        , ~"x-request-id" =>
+                              #{ description => ~"A duplicate spelling."
+                               , in => header
+                               }
                         }
                  , responses =>
                        #{ 202 => #{ description => ~"The job was started."

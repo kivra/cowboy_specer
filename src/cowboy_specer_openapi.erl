@@ -193,10 +193,26 @@ add_parameters(Endpoint, Module, #{parameters := Params} = Op) ->
 %% be able to add a parameter, not only override a found one. `in` defaults to
 %% `query`, and a hand-declared parameter is optional unless it says otherwise.
 declared_parameters(Overrides, Scanned) ->
-    [ declared_parameter(Name, Override)
-      || Name := Override <- maps:iterator(Overrides, ordered),
-         is_map(Override),
-         not scanned_already(Name, Override, Scanned) ].
+    dedup_declared(
+      [ declared_parameter(Name, Override)
+        || Name := Override <- maps:iterator(Overrides, ordered),
+           is_map(Override),
+           not scanned_already(Name, Override, Scanned) ]).
+
+%% Two attribute keys can collapse to one canonical identity -- ~"X-Tenant"
+%% and ~"x-tenant" are both {header, ~"x-tenant"} -- and OpenAPI forbids
+%% duplicate parameters. The first in key order wins, the same keep-first rule
+%% the scanner's dedup_params applies to scanned duplicates.
+dedup_declared(Params) ->
+    dedup_declared(Params, []).
+
+dedup_declared([], _Seen) ->
+    [];
+dedup_declared([#{in := In, name := Name} = P | Rest], Seen) ->
+    case lists:member({In, Name}, Seen) of
+        true -> dedup_declared(Rest, Seen);
+        false -> [P | dedup_declared(Rest, [{In, Name} | Seen])]
+    end.
 
 declared_parameter(Name, Override) ->
     In = maps:get(in, Override, query),
