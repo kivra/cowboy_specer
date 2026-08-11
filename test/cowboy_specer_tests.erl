@@ -224,6 +224,11 @@ plain_handler_wrapper_test_() ->
                      parameter_json(operation_json(cowboy_specer_job_h,
                                                    "/jobs/import", ~"post"),
                                     ~"dry_run"))}
+    , {"...and its declared `in` is honoured, not just the query default",
+       ?_assertMatch(#{~"in" := ~"header", ~"required" := false},
+                     parameter_json(operation_json(cowboy_specer_job_h,
+                                                   "/jobs/import", ~"post"),
+                                    ~"x-request-id"))}
     ].
 
 %%%_ * Selecting what to document --------------------------------------

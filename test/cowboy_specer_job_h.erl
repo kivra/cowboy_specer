@@ -16,14 +16,20 @@ the only evidence.
 -openapi(#{ tags => [~"jobs"]
           , post =>
                 #{ summary => ~"Start the batch job"
-                   %% `dry_run` is read by the job runner in another module,
-                   %% where the scanner cannot see it -- so it is declared by
-                   %% hand, which must *add* the parameter, not just override
-                   %% a found one.
+                   %% Both parameters are read elsewhere, where the scanner
+                   %% cannot see them -- so they are declared by hand, which
+                   %% must *add* them, not just override found ones. `dry_run`
+                   %% exercises the `in` default (query); `x-request-id` an
+                   %% explicit `in`.
                  , parameters =>
-                       #{~"dry_run" =>
-                             #{description =>
-                                   ~"Validate the request without starting."}}
+                       #{ ~"dry_run" =>
+                              #{description =>
+                                    ~"Validate the request without starting."}
+                        , ~"x-request-id" =>
+                              #{ description => ~"Echoed into the job log."
+                               , in => header
+                               }
+                        }
                  , responses =>
                        #{ 202 => #{ description => ~"The job was started."
                                   , schema => {type, job_status, 0}
