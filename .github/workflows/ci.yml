@@ -55,8 +55,12 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # --target pins the tag to the commit these checks ran against;
+        # without it gh tags whatever master points at by then, which a
+        # faster follow-up push may already have moved.
         run: |
-          gh release create "${{ needs.versioner.outputs.releaseTag }}" --generate-notes
+          gh release create "${{ needs.versioner.outputs.releaseTag }}" \
+            --generate-notes --target "${{ github.sha }}"
 
   compile-deps:
     runs-on:
