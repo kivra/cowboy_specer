@@ -20,12 +20,13 @@ the only evidence.
                    %% module reads either, which is the point -- a declared
                    %% parameter the scanner cannot find must be *added*, not
                    %% just override a found one. `dry_run` exercises the `in`
-                   %% default (query); `x-request-id` an explicit `in`.
+                   %% default (query); `X-Request-Id` exercises an explicit
+                   %% `in` and the lowercase canonicalization of header names.
                  , parameters =>
                        #{ ~"dry_run" =>
                               #{description =>
                                     ~"Validate the request without starting."}
-                        , ~"x-request-id" =>
+                        , ~"X-Request-Id" =>
                               #{ description => ~"Echoed into the job log."
                                , in => header
                                }

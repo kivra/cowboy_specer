@@ -193,14 +193,18 @@ add_parameters(Endpoint, Module, #{parameters := Params} = Op) ->
 %% be able to add a parameter, not only override a found one. `in` defaults to
 %% `query`, and a hand-declared parameter is optional unless it says otherwise.
 declared_parameters(Overrides, Scanned) ->
-    [ #{ name => Name
-       , in => maps:get(in, Override, query)
-       , required => maps:get(required, Override, false)
-       , schema => maps:get(schema, Override, string_type())
-       }
+    [ declared_parameter(Name, Override)
       || Name := Override <- maps:iterator(Overrides, ordered),
          is_map(Override),
          not scanned_already(Name, Override, Scanned) ].
+
+declared_parameter(Name, Override) ->
+    In = maps:get(in, Override, query),
+    #{ name => canonical(In, Name)
+     , in => In
+     , required => maps:get(required, Override, false)
+     , schema => maps:get(schema, Override, string_type())
+     }.
 
 %% {In, Name} is a parameter's identity, so an entry saying `in => header`
 %% collides only with a scanned header of that name -- a scanned query `id`
@@ -209,9 +213,17 @@ declared_parameters(Overrides, Scanned) ->
 %% of that name wherever it was found, and only becomes a new query parameter
 %% when the name is nowhere to be seen.
 scanned_already(Name, #{in := In}, Scanned) ->
-    lists:any(fun(#{name := N, in := I}) -> {I, N} =:= {In, Name} end, Scanned);
+    Canonical = canonical(In, Name),
+    lists:any(fun(#{name := N, in := I}) -> {I, N} =:= {In, Canonical} end, Scanned);
 scanned_already(Name, _Override, Scanned) ->
-    lists:any(fun(#{name := N}) -> N =:= Name end, Scanned).
+    lists:any(fun(#{name := N, in := I}) -> N =:= canonical(I, Name) end, Scanned).
+
+%% HTTP header names are case-insensitive and the scanner canonicalizes the
+%% ones it finds to lowercase, so a declared header is compared and emitted
+%% the same way -- `~"X-Tenant"` must override a scanned `x-tenant`, not sit
+%% beside it as a second spelling.
+canonical(header, Name) -> string:lowercase(Name);
+canonical(_In, Name) -> Name.
 
 method_attr_of(#{attr := Attr}) -> Attr.
 
@@ -227,13 +239,20 @@ parameter(#{name := Name, in := In, required := Required} = Param, Overrides) ->
      }.
 
 %% An entry with an explicit `in` speaks only for parameters in that location;
-%% one without stays a name-wide override.
+%% one without stays a name-wide override. `Name` arrives canonical (scanned
+%% headers are lowercased), so header entries are matched case-insensitively.
 override_for(Name, In, Overrides) ->
-    case maps:get(Name, Overrides, #{}) of
-        #{in := DeclaredIn} when DeclaredIn =/= In -> #{};
-        M when is_map(M) -> M;
-        _NotAMap -> #{}
+    Compatible = [ O || K := O <- maps:iterator(Overrides, ordered),
+                        is_map(O),
+                        canonical(In, K) =:= Name,
+                        location_compatible(In, O) ],
+    case Compatible of
+        [Override | _] -> Override;
+        [] -> #{}
     end.
+
+location_compatible(In, #{in := DeclaredIn}) -> DeclaredIn =:= In;
+location_compatible(_In, _Override) -> true.
 
 %% OpenAPI would put a query parameter's default in the schema, but spectra's
 %% JSON Schema generator has no `default`, so it goes in the prose where it at

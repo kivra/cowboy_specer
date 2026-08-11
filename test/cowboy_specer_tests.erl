@@ -146,6 +146,14 @@ widget_openapi_test_() ->
        ?_assertMatch(#{~"required" := true,
                        ~"description" := ~"The widget's identifier."},
                      parameter_json(maps:get(~"get", Path), ~"widget_id", ~"path"))}
+    , {"a declared header matches a scanned one case-insensitively",
+       ?_assertMatch(#{~"description" := ~"The tenant to bill."},
+                     parameter_json(maps:get(~"get", Path), ~"x-tenant", ~"header"))}
+    , {"...overriding it rather than adding a second spelling",
+       ?_assertEqual([~"x-tenant"],
+                     [maps:get(~"name", P)
+                      || P <- maps:get(~"parameters", maps:get(~"get", Path)),
+                         string:lowercase(maps:get(~"name", P)) =:= ~"x-tenant"])}
     , {"nothing reads an authorization header, so no security scheme",
        ?_assertNot(maps:is_key(~"securitySchemes",
                                maps:get(~"components",

@@ -287,7 +287,7 @@ merged.
 | `tags`, `summary`, `description` | top level | defaults for every method |
 | `get`, `post`, `put`, `patch`, `delete`, `head`, `options` | top level | per-method overrides |
 | `summary`, `description`, `operationId`, `tags`, `deprecated`, `externalDocs` | per method | straight into the operation |
-| `parameters` | per method | `#{ParameterName => #{description, schema, required, in}}` — overrides a found parameter, or adds one the scanner cannot see. An entry with an explicit `in` speaks only for that location (`{in, name}` is a parameter's identity); one without overrides the name wherever it was found, or adds a query parameter. Path parameters are always required, whatever `required` says |
+| `parameters` | per method | `#{ParameterName => #{description, schema, required, in}}` — overrides a found parameter, or adds one the scanner cannot see. An entry with an explicit `in` speaks only for that location (`{in, name}` is a parameter's identity); one without overrides the name wherever it was found, or adds a query parameter. Header names compare case-insensitively and are emitted lowercase. Path parameters are always required, whatever `required` says |
 | `request_body` | per method | `#{schema, content_type}` |
 | `responses` | per method | `#{StatusCode => #{description, schema, content_type}}` |
 
