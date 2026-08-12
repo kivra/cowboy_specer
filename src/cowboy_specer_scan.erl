@@ -381,7 +381,9 @@ operation(Kind, Method, Clauses, Graph, Facts, Provided, Accepted, PathParams) -
      , parameters =>
            sort_params(dedup_params(PathParams ++ [P || {param, P} <- Fs]))
      , replies => Replies
-     , implied => implied_statuses(Kind, Method, Fs)
+     , implied => implied_statuses(Kind, Method,
+                                   accept_facts(Kind, Method, Accepted, Graph,
+                                                Facts))
      , auth => lists:member(auth, Fs) orelse
                requires_auth(Clauses) orelse
                maps:is_key(401, Replies)
@@ -456,6 +458,20 @@ requires_auth(Clauses) ->
 
 always_authorized({tuple, _, [{atom, _, true}, _Req, _State]}) -> true;
 always_authorized(_Expr) -> false.
+
+%% The facts reachable from the method's accept callback alone. The success
+%% status of a write method comes from what *that callback* returns -- the
+%% generic callbacks return `{true | false, Req, State}` tuples of their own
+%% (`resource_exists`, `forbidden`, `allow_missing_post`, ...), and reading
+%% those as accept results would invent statuses the method can never answer.
+-spec accept_facts(kind(), binary(), [{content_type(), atom()}],
+                   #{fa() => [fa()]}, #{fa() => [fact()]}) -> [fact()].
+accept_facts(rest, Method, Accepted, Graph, Facts)
+  when Method =:= ~"POST"; Method =:= ~"PUT"; Method =:= ~"PATCH" ->
+    Roots = [{F, 2} || {_CT, F} <- Accepted],
+    lists:append([maps:get(FA, Facts, []) || FA <- reachable(Roots, Graph)]);
+accept_facts(_Kind, _Method, _Accepted, _Graph, _Facts) ->
+    [].
 
 %% Statuses `cowboy_rest` derives from the handler's return value, as opposed to
 %% the ones the handler replies with itself.

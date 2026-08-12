@@ -99,7 +99,9 @@ per_method_facts_test_() ->
     , {"a non-protocol header is a header parameter",
        ?_assertMatch(#{in := header, required := false},
                      param(Get, header, ~"x-tenant"))}
-    , {"returning {created, URI} means 201",
+    , {"returning {created, URI} means 201 -- and only 201: the {true,_,_} and "
+       "{false,_,_} that resource_exists/2 and forbidden/2 return are not "
+       "accept results",
        ?_assertEqual([201], maps:get(implied, Post))}
     , {"DELETE implies 204",
        ?_assertEqual([204], maps:get(implied, Delete))}
