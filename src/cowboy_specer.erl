@@ -96,9 +96,13 @@ Multiple `-openapi(...)` attributes in one module are merged.
 
 %% A path-level Cowboy route: `cowboy_router:route_path()`, which Cowboy does not
 %% export. The two-element form is accepted as a convenience when there is no
-%% initial state to pass.
+%% initial state to pass. The four-element form carries binding constraints,
+%% which the analysis does not read -- a path parameter is typed from the
+%% handler module only -- but the route must still pass through unchanged.
 -type route() :: {Path :: iodata(), module()}
-               | {Path :: iodata(), module(), InitialState :: any()}.
+               | {Path :: iodata(), module(), InitialState :: any()}
+               | {Path :: iodata(), Constraints :: cowboy:fields(), module(),
+                  InitialState :: any()}.
 
 -type options() ::
         #{ %% Where the document and the two UIs are served from. Set any of
@@ -207,6 +211,9 @@ resource(Route) ->
 path_and_module({Path, Module}) when is_atom(Module) ->
     {Path, Module};
 path_and_module({Path, Module, _InitialState}) when is_atom(Module) ->
+    {Path, Module};
+path_and_module({Path, Constraints, Module, _InitialState})
+  when is_list(Constraints), is_atom(Module) ->
     {Path, Module}.
 
 doc_routes(Json, Opts) ->

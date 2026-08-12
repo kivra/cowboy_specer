@@ -234,6 +234,15 @@ non_handlers_are_skipped_test() ->
     %% No init/2 at all, so not a Cowboy handler.
     ?assertEqual([], cowboy_specer:resources([{"/nope", cowboy_specer_secret, #{}}])).
 
+%% cowboy_router also takes {Path, Constraints, Handler, InitialState}. The
+%% constraints are not read -- a path parameter is typed from the handler
+%% module only -- but the route form must be accepted.
+constraint_routes_are_accepted_test() ->
+    [R] = cowboy_specer:resources(
+            [{"/widgets/:widget_id", [{widget_id, int}], cowboy_specer_widget_h, #{}}]),
+    ?assertEqual(~"/widgets/{widget_id}", maps:get(path, R)),
+    ?assertEqual(cowboy_specer_widget_h, maps:get(module, R)).
+
 implicit_responses_can_be_turned_off_test() ->
     {ok, Json} = cowboy_specer:openapi(?META, [{"/person", cowboy_specer_person_h, #{}}],
                                  #{implicit_responses => false}),
