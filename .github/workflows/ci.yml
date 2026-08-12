@@ -11,9 +11,6 @@ jobs:
   versioner:
     runs-on:
       group: new-runners
-    permissions:
-      contents: write
-      packages: write
     outputs:
       releaseTag: ${{ steps.semver.outputs.nextStrict }}
       commitTag: ${{ steps.git.outputs.commitTag }}
@@ -41,12 +38,29 @@ jobs:
           GIT_COMMIT="${GITHUB_SHA:0:7}"
           echo "commitTag=${GIT_BRANCH}-${GIT_COMMIT}" >> $GITHUB_OUTPUT
 
+  # A release is a claim that the commit works, and consumers install from the
+  # released tags -- so it waits for every check to pass rather than racing
+  # them.
+  release:
+    needs: [versioner, xref, ct, eunit, dialyzer]
+    if: needs.versioner.outputs.releaseTag != ''
+    runs-on:
+      group: new-runners
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
       - name: Create GitHub Release
-        if: ${{ steps.semver.outputs.nextStrict != '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # --target pins the tag to the commit these checks ran against;
+        # without it gh tags whatever master points at by then, which a
+        # faster follow-up push may already have moved.
         run: |
-          gh release create "${{ steps.semver.outputs.nextStrict }}" --generate-notes
+          gh release create "${{ needs.versioner.outputs.releaseTag }}" \
+            --generate-notes --target "${{ github.sha }}"
 
   compile-deps:
     runs-on:
