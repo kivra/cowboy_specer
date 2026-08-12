@@ -449,4 +449,4 @@ starts a real Cowboy listener and fetches the documentation endpoints over HTTP.
 
 ## Licence
 
-LGPL-3.0-or-later. See [COPYING](COPYING) and [COPYING.LESSER](COPYING.LESSER).
+Apache-2.0. See [LICENSE](LICENSE).
