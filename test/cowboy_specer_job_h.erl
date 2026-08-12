@@ -16,6 +16,36 @@ the only evidence.
 -openapi(#{ tags => [~"jobs"]
           , post =>
                 #{ summary => ~"Start the batch job"
+                   %% Declaration-only fixture parameters: nothing in this
+                   %% module reads either, which is the point -- an entry
+                   %% naming a location is *added* when the scanner found
+                   %% nothing to override. An addition must say where it
+                   %% lives; an entry without `in` can only override, and
+                   %% with nothing scanned here it adds nothing at all.
+                 , parameters =>
+                       #{ ~"dry_run" =>
+                              #{ in => query
+                               , description =>
+                                     ~"Validate the request without starting."
+                               }
+                        , ~"X-Request-Id" =>
+                              #{ description => ~"Echoed into the job log."
+                               , in => header
+                               }
+                          %% Deliberately the same header in another spelling:
+                          %% both canonicalize to `x-request-id`, so only one
+                          %% may reach the document -- the first in key order,
+                          %% which is `X-Request-Id` (uppercase sorts first).
+                        , ~"x-request-id" =>
+                              #{ description => ~"A duplicate spelling."
+                               , in => header
+                               }
+                          %% A third spelling without a location: it may
+                          %% neither add a parameter nor leak its description
+                          %% onto the declared header, whose own entry wins.
+                        , ~"X-Request-ID" =>
+                              #{description => ~"A name-wide note."}
+                        }
                  , responses =>
                        #{ 202 => #{ description => ~"The job was started."
                                   , schema => {type, job_status, 0}

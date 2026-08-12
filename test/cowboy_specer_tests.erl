@@ -136,6 +136,30 @@ widget_openapi_test_() ->
                                                          maps:get(~"post", Path))))))}
     , {"DELETE's 204 carries no body",
        ?_assertNot(maps:is_key(~"content", response(maps:get(~"delete", Path), ~"204")))}
+    , {"a declared header may reuse a scanned query parameter's name",
+       ?_assertMatch(#{~"in" := ~"header", ~"description" := ~"Page hint header."},
+                     parameter_json(maps:get(~"get", Path), ~"page", ~"header"))}
+    , {"...without touching the query parameter it shares the name with",
+       ?_assertMatch(#{~"in" := ~"query", ~"schema" := #{~"type" := ~"integer"}},
+                     parameter_json(maps:get(~"get", Path), ~"page", ~"query"))}
+    , {"a path parameter stays required whatever the override says",
+       ?_assertMatch(#{~"required" := true,
+                       ~"description" := ~"The widget's identifier."},
+                     parameter_json(maps:get(~"get", Path), ~"widget_id", ~"path"))}
+    , {"a path declaration absent from the route template is dropped",
+       ?_assertEqual([~"page", ~"page", ~"widget_id", ~"x-tenant"],
+                     lists:sort([maps:get(~"name", P)
+                                 || P <- maps:get(~"parameters",
+                                                  maps:get(~"get", Path))]))}
+    , {"a declared header matches a scanned one case-insensitively, and the "
+       "location-specific entry outranks the earlier-sorting name-wide alias",
+       ?_assertMatch(#{~"description" := ~"The tenant to bill."},
+                     parameter_json(maps:get(~"get", Path), ~"x-tenant", ~"header"))}
+    , {"...overriding it rather than adding a second spelling",
+       ?_assertEqual([~"x-tenant"],
+                     [maps:get(~"name", P)
+                      || P <- maps:get(~"parameters", maps:get(~"get", Path)),
+                         string:lowercase(maps:get(~"name", P)) =:= ~"x-tenant"])}
     , {"nothing reads an authorization header, so no security scheme",
        ?_assertNot(maps:is_key(~"securitySchemes",
                                maps:get(~"components",
@@ -218,6 +242,34 @@ plain_handler_wrapper_test_() ->
        ?_assertEqual(#{~"$ref" => ~"#/components/schemas/JobStatus0"},
                      schema_of(operation_json(cowboy_specer_job_h, "/jobs/import", ~"post"),
                                ~"202", ~"application/json"))}
+    , {"a parameter the scanner cannot see is added from -openapi, and "
+       "without a declared schema it is an optional string",
+       ?_assertMatch(#{~"in" := ~"query", ~"required" := false,
+                       ~"description" := ~"Validate the request without starting.",
+                       ~"schema" := #{~"type" := ~"string"}},
+                     parameter_json(operation_json(cowboy_specer_job_h,
+                                                   "/jobs/import", ~"post"),
+                                    ~"dry_run"))}
+    , {"...and a declared header lands in its declared location",
+       ?_assertMatch(#{~"in" := ~"header", ~"required" := false},
+                     parameter_json(operation_json(cowboy_specer_job_h,
+                                                   "/jobs/import", ~"post"),
+                                    ~"x-request-id"))}
+    , {"two spellings collapsing to one header keep the first declaration, "
+       "and a location-less entry cannot leak onto it",
+       ?_assertEqual([~"Echoed into the job log."],
+                     [maps:get(~"description", P)
+                      || P <- maps:get(~"parameters",
+                                       operation_json(cowboy_specer_job_h,
+                                                      "/jobs/import", ~"post")),
+                         maps:get(~"name", P) =:= ~"x-request-id"])}
+    , {"an entry without a location adds nothing",
+       ?_assertEqual([~"dry_run", ~"x-request-id"],
+                     lists:sort([maps:get(~"name", P)
+                                 || P <- maps:get(~"parameters",
+                                                  operation_json(cowboy_specer_job_h,
+                                                                 "/jobs/import",
+                                                                 ~"post"))]))}
     ].
 
 %%%_ * Selecting what to document --------------------------------------
@@ -336,6 +388,12 @@ param(#{parameters := Params}, In, Name) ->
 
 parameter_json(Operation, Name) ->
     [P] = [P || #{~"name" := N} = P <- maps:get(~"parameters", Operation), N =:= Name],
+    P.
+
+%% Disambiguates when two locations share a parameter name.
+parameter_json(Operation, Name, In) ->
+    [P] = [P || #{~"name" := N, ~"in" := I} = P <- maps:get(~"parameters", Operation),
+                N =:= Name, I =:= In],
     P.
 
 %% The `type` field of an #sp_simple_type{} without depending on the record.

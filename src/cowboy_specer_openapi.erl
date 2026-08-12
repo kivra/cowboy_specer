@@ -179,26 +179,115 @@ method_attr(#{doc := Attr}, Method) ->
 
 %%%_ * Parameters ------------------------------------------------------
 
+%% Scanned parameters are rendered with the override entry that speaks for
+%% them; declared parameters carry the entry they were born from, so a
+%% name-wide entry can never leak onto a declared parameter whose identity it
+%% does not share.
 add_parameters(Endpoint, Module, #{parameters := Params} = Op) ->
     Overrides = maps:get(parameters, method_attr_of(Op), #{}),
-    lists:foldl(fun(P, Ep) ->
+    Scanned = [ {P, override_for(Name, In, Overrides)}
+                || #{name := Name, in := In} = P <- Params ],
+    All = Scanned ++ declared_parameters(Overrides, Params),
+    lists:foldl(fun({P, Override}, Ep) ->
                         spectra_openapi:with_parameter(
-                          Ep, Module, parameter(P, Overrides))
-                end, Endpoint, Params).
+                          Ep, Module, parameter(P, Override))
+                end, Endpoint, All).
+
+%% A parameter declared in `-openapi(...)` that the scanner never found -- a
+%% `match_qs/2` list built at runtime, a header read inside a helper module.
+%% The attribute is the documented escape hatch for exactly those, so it must
+%% be able to add a parameter, not only override a found one. An addition
+%% must say where it lives: only an entry with an explicit `in` declares a
+%% parameter, and one without stays what it always was -- an override of a
+%% scanned parameter, adding nothing. Nothing is guessed, not even `query`.
+declared_parameters(Overrides, Scanned) ->
+    dedup_declared(
+      [ {declared_parameter(Name, Override), Override}
+        || Name := Override <- maps:iterator(Overrides, ordered),
+           is_map(Override),
+           addable(Override),
+           not scanned_already(Name, Override, Scanned) ]).
+
+%% Only an entry with an explicit `in` declares a parameter -- and never at
+%% `path`: the route template is the authority on path parameters and the
+%% scanner already seeds every template variable, so an unmatched `path`
+%% declaration could only produce an operation OpenAPI forbids. Path entries
+%% stay override-only.
+addable(#{in := path}) -> false;
+addable(#{in := _In}) -> true;
+addable(_NoLocation) -> false.
+
+%% Two attribute keys can collapse to one canonical identity -- ~"X-Tenant"
+%% and ~"x-tenant" are both {header, ~"x-tenant"} -- and OpenAPI forbids
+%% duplicate parameters. The first in key order wins, the same keep-first rule
+%% the scanner's dedup_params applies to scanned duplicates.
+dedup_declared(Params) ->
+    dedup_declared(Params, []).
+
+dedup_declared([], _Seen) ->
+    [];
+dedup_declared([{#{in := In, name := Name}, _Override} = Pair | Rest], Seen) ->
+    case lists:member({In, Name}, Seen) of
+        true -> dedup_declared(Rest, Seen);
+        false -> [Pair | dedup_declared(Rest, [{In, Name} | Seen])]
+    end.
+
+declared_parameter(Name, #{in := In} = Override) ->
+    #{ name => canonical(In, Name)
+     , in => In
+     , required => maps:get(required, Override, false)
+     , schema => maps:get(schema, Override, string_type())
+     }.
+
+%% {In, Name} is a parameter's identity, so an entry saying `in => header`
+%% collides only with a scanned header of that name -- a scanned query `id`
+%% must not swallow a declared header `id`.
+scanned_already(Name, #{in := In}, Scanned) ->
+    Canonical = canonical(In, Name),
+    lists:any(fun(#{name := N, in := I}) -> {I, N} =:= {In, Canonical} end, Scanned).
+
+%% HTTP header names are case-insensitive and the scanner canonicalizes the
+%% ones it finds to lowercase, so a declared header is compared and emitted
+%% the same way -- `~"X-Tenant"` must override a scanned `x-tenant`, not sit
+%% beside it as a second spelling.
+canonical(header, Name) -> string:lowercase(Name);
+canonical(_In, Name) -> Name.
 
 method_attr_of(#{attr := Attr}) -> Attr.
 
-parameter(#{name := Name, in := In, required := Required} = Param, Overrides) ->
-    Override = case maps:get(Name, Overrides, #{}) of
-                   M when is_map(M) -> M;
-                   _ -> #{}
-               end,
+parameter(#{name := Name, in := In, required := Required} = Param, Override) ->
     Schema = maps:get(schema, Override, maps:get(schema, Param)),
     #{ name => Name
      , in => In
-     , required => maps:get(required, Override, Required)
+       %% OpenAPI forbids an optional path parameter, whatever an override
+       %% says.
+     , required => In =:= path orelse maps:get(required, Override, Required)
      , schema => describe(Schema, parameter_description(Param, Override))
      }.
+
+%% The entry that speaks for a *scanned* parameter. One with an explicit `in`
+%% only speaks for that location; one without is a name-wide override. `Name`
+%% arrives canonical (scanned headers are lowercased), so header entries are
+%% matched case-insensitively.
+override_for(Name, In, Overrides) ->
+    Compatible = [ O || K := O <- maps:iterator(Overrides, ordered),
+                        is_map(O),
+                        canonical(In, K) =:= Name,
+                        location_compatible(In, O) ],
+    %% The most specific entry wins: one naming the location outranks a
+    %% name-wide one, whatever order their keys happen to sort in.
+    case [O || #{in := _} = O <- Compatible] of
+        [Exact | _] ->
+            Exact;
+        [] ->
+            case Compatible of
+                [NameWide | _] -> NameWide;
+                [] -> #{}
+            end
+    end.
+
+location_compatible(In, #{in := DeclaredIn}) -> DeclaredIn =:= In;
+location_compatible(_In, _Override) -> true.
 
 %% OpenAPI would put a query parameter's default in the schema, but spectra's
 %% JSON Schema generator has no `default`, so it goes in the prose where it at
