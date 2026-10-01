@@ -205,8 +205,15 @@ openapi_segment(Segment) -> Segment.
 
 resource(Route) ->
     {Path, Module} = path_and_module(Route),
-    {module, Module} = code:ensure_loaded(Module),
-    cowboy_specer_scan:resource(openapi_path(Path), Module).
+    %% The same error shape cowboy_specer_scan raises for a module it cannot
+    %% read: a typo'd handler in a route list should name itself at boot, not
+    %% surface as a bare badmatch.
+    case code:ensure_loaded(Module) of
+        {module, Module} ->
+            cowboy_specer_scan:resource(openapi_path(Path), Module);
+        {error, Reason} ->
+            erlang:error({module_not_found, Module, Reason})
+    end.
 
 path_and_module({Path, Module}) when is_atom(Module) ->
     {Path, Module};
