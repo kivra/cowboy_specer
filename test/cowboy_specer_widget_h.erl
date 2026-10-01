@@ -6,12 +6,19 @@ Exercises what the person fixture does not: a path binding, an `int` query
 constraint with a default, a custom request header, a `POST` answering
 `{created, URI}`, and a `DELETE`. Each method replies a status the others do
 not, which is how per-method fact attribution is checked.
+
+It also implements `resource_exists/2` and `forbidden/2` the way almost every
+real handler does -- returning `{true | false, Req, State}`. Those returns must
+not be read as accept results: the `POST` here answers 201 and only 201, not a
+204 borrowed from `resource_exists/2` or a 400 from `forbidden/2`.
 """.
 
 -behaviour(cowboy_rest).
 
 -export([ init/2
         , allowed_methods/2
+        , resource_exists/2
+        , forbidden/2
         , content_types_provided/2
         , content_types_accepted/2
         , delete_resource/2
@@ -51,6 +58,12 @@ init(Req, State) ->
 
 allowed_methods(Req, State) ->
     {[~"GET", ~"POST", ~"DELETE"], Req, State}.
+
+resource_exists(Req, State) ->
+    {true, Req, State}.
+
+forbidden(Req, State) ->
+    {false, Req, State}.
 
 content_types_provided(Req, State) ->
     %% The <<"application/json">> shorthand rather than the {Type, Sub, Params}
