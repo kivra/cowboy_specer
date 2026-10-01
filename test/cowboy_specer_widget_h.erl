@@ -20,7 +20,44 @@ not, which is how per-method fact attribution is checked.
         ]).
 
 -openapi(#{ tags => [~"widget"]
-          , get => #{summary => ~"Fetch one widget"}
+            %% `page` deliberately reuses a scanned query parameter's name in
+            %% another location: {in, name} is a parameter's identity, so this
+            %% adds a header without touching the query parameter.
+            %% `X-Tenant` names the scanned `x-tenant` header in different
+            %% case: header names are case-insensitive, so it must override
+            %% that parameter, not sit beside it as a second spelling. And
+            %% `widget_id`'s required => false must be ignored -- OpenAPI
+            %% forbids an optional path parameter.
+          , get => #{ summary => ~"Fetch one widget"
+                    , parameters =>
+                          #{ ~"page" =>
+                                 #{ in => header
+                                  , description => ~"Page hint header."
+                                  }
+                           , ~"X-Tenant" =>
+                                 #{ in => header
+                                  , description => ~"The tenant to bill."
+                                  }
+                             %% A name-wide alias for the same scanned header,
+                             %% deliberately spelled to sort *before* the
+                             %% location-specific entry: the entry naming the
+                             %% location must win anyway.
+                           , ~"X-TENANT" =>
+                                 #{description => ~"A name-wide alias."}
+                           , ~"widget_id" =>
+                                 #{ description => ~"The widget's identifier."
+                                  , required => false
+                                  }
+                             %% Not a variable in the route template, so this
+                             %% must be dropped: the template is the authority
+                             %% on path parameters, and emitting one it does
+                             %% not declare would be invalid OpenAPI.
+                           , ~"legacy_id" =>
+                                 #{ in => path
+                                  , description => ~"A path that never was."
+                                  }
+                           }
+                    }
           , post =>
                 #{ summary => ~"Create a widget"
                  , request_body => #{schema => {type, new_widget, 0}}

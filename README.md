@@ -287,12 +287,38 @@ merged.
 | `tags`, `summary`, `description` | top level | defaults for every method |
 | `get`, `post`, `put`, `patch`, `delete`, `head`, `options` | top level | per-method overrides |
 | `summary`, `description`, `operationId`, `tags`, `deprecated`, `externalDocs` | per method | straight into the operation |
-| `parameters` | per method | `#{ParameterName => #{description, schema, required}}` |
+| `parameters` | per method | `#{ParameterName => #{description, schema, required, in}}` — overrides a found parameter or, with `in`, declares one the scanner cannot see; see [Declared parameters](#declared-parameters) |
 | `request_body` | per method | `#{schema, content_type}` |
 | `responses` | per method | `#{StatusCode => #{description, schema, content_type}}` |
 
 A `schema` is anything `spectra_openapi` accepts: `{type, Name, Arity}`,
 `{record, Name}`, or an inline spectra type.
+
+### Declared parameters
+
+Four rules govern how a `parameters` entry meets what the scanner found:
+
+1. **An entry without `in` only overrides.** It applies to the scanned
+   parameter of that name wherever it was found, and adds nothing — an
+   addition must say where it lives, because guessing a location would be a
+   guess in published documentation. When both a name-wide entry and one
+   naming the location speak for the same scanned parameter, the more
+   specific one wins.
+2. **An entry with `in` declares the parameter at that location.** It
+   overrides the scanned parameter with the same `{in, name}` identity if
+   there is one, and is added otherwise — a scanned query `id` does not
+   swallow a declared header `id`. Unless the entry says more, a declared
+   parameter is an optional `string`. The exception is `in => path`, which
+   can only override: the route template is the authority on path
+   parameters, so a `path` declaration naming no template variable is
+   dropped rather than emitted as a parameter OpenAPI forbids.
+3. **Header names compare case-insensitively and are emitted lowercase**,
+   matching how the scanner canonicalizes the headers it reads: a declared
+   `X-Tenant` overrides a scanned `x-tenant` rather than duplicating it.
+4. **Declarations that collapse to the same identity keep the first in key
+   order**, the same rule applied to scanned duplicates — and a path
+   parameter is always required, whatever `required` says, because OpenAPI
+   forbids the alternative.
 
 Request bodies always need declaring — `cowboy_rest` hands the accept callback a
 `Req`, not a decoded body, so there is no type to read. Without a declaration, a
@@ -382,7 +408,8 @@ path that already uses `{id}` is returned unchanged.
 
 Only what is literal *in the handler module* is seen:
 
-- a `match_qs/2` list built at runtime is invisible;
+- a `match_qs/2` list built at runtime is invisible — declare the parameter in
+  `-openapi(...)` instead;
 - a method test written as `M = cowboy_req:method(Req), case M of ...` is
   invisible; only the direct `case cowboy_req:method(Req) of` and `=:=` forms are
   read;
