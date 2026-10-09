@@ -172,8 +172,11 @@ local `reply/5` wrapper, a `match_qs/2` list built at runtime, or an
                 %% A `cowboy_req:reply/2,3,4` whose status is the enclosing
                 %% function's Nth argument. Resolved against that function's
                 %% call sites in a second pass -- see resolve_facts/2.
-              | {reply_arg, fa(), pos_integer(), map()}
-              | {accept_result, true | false | created | see_other | stop}.
+              | {reply_arg, fa(), pos_integer(), map()}.
+
+%% What an accept callback returns on one of its paths: a `cowboy_rest' result,
+%% or `unknown' for a return the scanner cannot read.
+-type accept_result() :: true | false | created | see_other | stop | unknown.
 
 %%%_ * API -------------------------------------------------------------
 
@@ -383,8 +386,7 @@ operation(Kind, Method, Clauses, Graph, Facts, Provided, Accepted, PathParams) -
      , replies => Replies
      , implied =>
            implied_statuses(Kind, Method,
-                            accept_facts(Method, Clauses, Graph, Facts,
-                                         Accepted))
+                            accept_results(Method, Clauses, Accepted))
      , auth => lists:member(auth, Fs) orelse
                requires_auth(Clauses) orelse
                maps:is_key(401, Replies)
@@ -462,7 +464,7 @@ always_authorized(_Expr) -> false.
 
 %% Statuses `cowboy_rest` derives from the handler's return value, as opposed to
 %% the ones the handler replies with itself.
--spec implied_statuses(kind(), binary(), [fact()]) -> [100..599].
+-spec implied_statuses(kind(), binary(), [accept_result()]) -> [100..599].
 %% Nothing is implied for a plain handler: there is no `cowboy_rest` state
 %% machine deriving a status from a callback's return value, only the replies
 %% the handler makes itself.
@@ -474,32 +476,82 @@ implied_statuses(rest, Method, _Fs) when Method =:= ~"GET";
     [200];
 implied_statuses(rest, ~"DELETE", _Fs) ->
     [204];
-implied_statuses(rest, Method, Fs) when Method =:= ~"POST";
-                                        Method =:= ~"PUT";
-                                        Method =:= ~"PATCH" ->
-    case lists:usort([R || {accept_result, R} <- Fs]) of
-        %% Nothing literal to go on: assume the usual `true'.
+implied_statuses(rest, Method, Results) when Method =:= ~"POST";
+                                             Method =:= ~"PUT";
+                                             Method =:= ~"PATCH" ->
+    case lists:usort(Results) of
+        %% No path at all to go on: assume the usual `true'.
         [] -> [204];
-        %% It only ever stops, so it replies itself, and cowboy_rest derives
-        %% nothing -- whatever it replies is among the handler's replies.
+        %% Every path stops, so the callback replies itself and cowboy_rest
+        %% derives nothing -- whatever it answers is among its replies.
         [stop] -> [];
-        Results -> lists:usort([accept_status(R) || R <- Results, R =/= stop])
+        %% A path the scanner cannot read, or no accept callback at all, is
+        %% assumed to be the usual `true'.
+        Rs -> lists:usort([accept_status(R) || R <- Rs, R =/= stop])
     end;
 implied_statuses(rest, _Method, _Fs) ->
     [].
 
-%% What the accept callback can return, read from it and from what it calls --
-%% not from every callback the method reaches, where an is_authorized/2
-%% answering `{true, Req, State}' would read as the accept callback's `true'.
-accept_facts(Method, Clauses, Graph, Facts, Accepted)
+%% What the accept callback returns, path by path: its return expressions,
+%% following tail calls into the module's own functions. Only the accept
+%% callback's paths -- an is_authorized/2 answering `{true, Req, State}', or a
+%% helper whose result the callback wraps, says nothing about what it returns.
+%% A path the scanner cannot follow is `unknown', so that one literal `stop'
+%% beside an opaque call is not mistaken for a callback that only stops.
+-spec accept_results(binary(), #{fa() => list()},
+                     [{content_type(), atom()}]) -> [accept_result()].
+accept_results(Method, Clauses, Accepted)
   when Method =:= ~"POST"; Method =:= ~"PUT"; Method =:= ~"PATCH" ->
-    Roots = [{F, 2} || {_CT, F} <- Accepted, maps:is_key({F, 2}, Clauses)],
-    [Fact || FA <- reachable(Roots, Graph),
-             {accept_result, _} = Fact <- maps:get(FA, Facts, [])];
-accept_facts(_Method, _Clauses, _Graph, _Facts, _Accepted) ->
+    case [{F, 2} || {_CT, F} <- Accepted, maps:is_key({F, 2}, Clauses)] of
+        [] -> [unknown];
+        Roots -> follow_returns(Roots, Clauses, [], [])
+    end;
+accept_results(_Method, _Clauses, _Accepted) ->
     [].
 
+follow_returns([], _Clauses, _Seen, Results) ->
+    lists:usort(Results);
+follow_returns([FA | Rest], Clauses, Seen, Results) ->
+    case lists:member(FA, Seen) of
+        true ->
+            follow_returns(Rest, Clauses, Seen, Results);
+        false ->
+            Paths = [return_path(E, Clauses)
+                     || E <- return_exprs(maps:get(FA, Clauses))],
+            follow_returns([Callee || {call, Callee} <- Paths] ++ Rest, Clauses,
+                           [FA | Seen],
+                           [R || {result, R} <- Paths] ++ Results)
+    end.
+
+%% One return expression: a literal result, a local function whose own returns
+%% are this path's, `through' for a call whose fun's returns tail_exprs/1
+%% already listed beside it -- a span wrapper -- or `unknown'.
+return_path(Expr, Clauses) ->
+    case accept_result(Expr) of
+        {ok, Result} ->
+            {result, Result};
+        error ->
+            case Expr of
+                {call, _, {atom, _, F}, Args} ->
+                    case maps:is_key({F, length(Args)}, Clauses) of
+                        true -> {call, {F, length(Args)}};
+                        false -> through_or_unknown(Args)
+                    end;
+                {call, _, _Remote, Args} ->
+                    through_or_unknown(Args);
+                _ ->
+                    {result, unknown}
+            end
+    end.
+
+through_or_unknown(Args) ->
+    case [Fun || {'fun', _, {clauses, _}} = Fun <- Args] of
+        [] -> {result, unknown};
+        [_ | _] -> through
+    end.
+
 accept_status(true) -> 204;
+accept_status(unknown) -> 204;
 accept_status(false) -> 400;
 accept_status(created) -> 201;
 accept_status(see_other) -> 303.
@@ -592,8 +644,7 @@ facts(Module, Clauses) ->
              end, Clauses).
 
 function_facts(FA, ClauseList, Clauses) ->
-    lists:append([clause_facts(FA, C, Clauses) || C <- ClauseList]) ++
-        return_facts(ClauseList).
+    lists:append([clause_facts(FA, C, Clauses) || C <- ClauseList]).
 
 %% Facts are gathered a clause at a time so that a variable in the body can be
 %% traced back to the argument it came from -- which is what makes a local
@@ -695,11 +746,8 @@ call_argument(_Module, _Form, Acc) ->
 add_call_arguments(FA, Args, Acc) ->
     maps:update_with(FA, fun(Lists) -> [Args | Lists] end, [Args], Acc).
 
-%% Facts that depend on *where* an expression sits: the accept callback's
-%% status comes from what the handler returns, not from what it calls.
-return_facts(Cs) ->
-    [{accept_result, R} || E <- return_exprs(Cs), {ok, R} <- [accept_result(E)]].
-
+%% The accept callback's status comes from what it returns, not from what it
+%% calls -- see accept_results/3.
 accept_result({tuple, _, [{atom, _, V}, _Req, _State]})
   when V =:= true; V =:= false; V =:= stop ->
     {ok, V};

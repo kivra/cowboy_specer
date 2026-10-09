@@ -184,6 +184,16 @@ reply_itself_test_() ->
                      lists:sort(maps:keys(maps:get(~"responses", PostJson))))}
     ].
 
+%% One literal stop beside a path the scanner cannot read is not a callback
+%% that only stops: the other path may return true.
+stop_beside_unknown_test_() ->
+    Post = operation(cowboy_specer_delegate_h, "/delegate", ~"POST"),
+    [ {"a stop and an unread result still imply 204",
+       ?_assertEqual([204], maps:get(implied, Post))}
+    , {"beside the reply the stop path makes",
+       ?_assertEqual([400], maps:keys(maps:get(replies, Post)))}
+    ].
+
 %%%_ * is_authorized/2 -------------------------------------------------
 
 %% cowboy_specer_open_h implements is_authorized/2 but answers {true, _, _} in every
