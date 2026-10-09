@@ -166,6 +166,34 @@ no_annotations_test_() ->
                             maps:get(~"content", maps:get(~"requestBody", PostJson))))}
     ].
 
+%%%_ * A POST that replies itself -------------------------------------
+
+%% The accept callback only ever stops, having replied 200 or 400 itself, so
+%% cowboy_rest derives no status from it -- and the {true, Req, State} that
+%% is_authorized/2 returns is not the accept callback's.
+reply_itself_test_() ->
+    Post = operation(cowboy_specer_lookup_h, "/lookup", ~"POST"),
+    PostJson = operation_json(cowboy_specer_lookup_h, "/lookup", ~"post"),
+    [ {"an accept callback that only stops implies nothing",
+       ?_assertEqual([], maps:get(implied, Post))}
+    , {"its own replies are found through the span and the wrapper",
+       ?_assertEqual([200, 400],
+                     lists:sort(maps:keys(maps:get(replies, Post))))}
+    , {"so the operation documents no 204",
+       ?_assertEqual([~"200", ~"400", ~"415"],
+                     lists:sort(maps:keys(maps:get(~"responses", PostJson))))}
+    ].
+
+%% One literal stop beside a path the scanner cannot read is not a callback
+%% that only stops: the other path may return true.
+stop_beside_unknown_test_() ->
+    Post = operation(cowboy_specer_delegate_h, "/delegate", ~"POST"),
+    [ {"a stop and an unread result still imply 204",
+       ?_assertEqual([204], maps:get(implied, Post))}
+    , {"beside the reply the stop path makes",
+       ?_assertEqual([400], maps:keys(maps:get(replies, Post)))}
+    ].
+
 %%%_ * is_authorized/2 -------------------------------------------------
 
 %% cowboy_specer_open_h implements is_authorized/2 but answers {true, _, _} in every

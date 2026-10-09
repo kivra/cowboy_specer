@@ -82,11 +82,16 @@ anything at all.
   fun, auth header), `cowboy_specer_widget_h` (three methods, path binding, `{created,_}`),
   `cowboy_specer_bare_h` (no annotations, `OPTIONS`+`POST`), `cowboy_specer_open_h` (an
   `is_authorized/2` that always says yes), `cowboy_specer_probe_h` (trivial plain handler),
-  `cowboy_specer_job_h` (plain, method dispatch through a reply wrapper), `cowboy_specer_hidden_h`
-  (opts out). Adding an inference means adding or extending a fixture, not
-  asserting against a handler in some other repo.
-- `cowboy_specer_span` and `cowboy_specer_secret` are separate modules on purpose: the scanner does
-  not cross module boundaries, and both fixtures depend on it not doing so.
+  `cowboy_specer_job_h` (plain, method dispatch through a reply wrapper),
+  `cowboy_specer_lookup_h` (a `POST` whose accept callback replies its own 200
+  and stops, behind an `is_authorized/2` that returns `true`),
+  `cowboy_specer_delegate_h` (one `stop` beside a path handed to another
+  module, which keeps the 204),
+  `cowboy_specer_hidden_h` (opts out). Adding an inference means adding or
+  extending a fixture, not asserting against a handler in some other repo.
+- `cowboy_specer_span`, `cowboy_specer_secret` and `cowboy_specer_store` are
+  separate modules on purpose: the scanner does not cross module boundaries,
+  and the fixtures depend on it not doing so.
 - A `cowboy_rest` provide callback returns the **encoded** body. So the
   spec-return route to a 200 schema only reaches handlers whose body is already
   a binary (XML, text); a JSON handler can only say `iodata()` and declares its
