@@ -107,7 +107,7 @@ wrote.
 | Request content types | `content_types_accepted/2` |
 | Status codes | `cowboy_req:reply/2,3,4` with a literal status |
 | Response descriptions | the literal body of those replies |
-| Success status | the accept callback's return: `true` → 204, `{created, _}` → 201, `{see_other, _}` → 303 |
+| Success status | the accept callback's return, and what it calls: `true` → 204, `{created, _}` → 201, `{see_other, _}` → 303; only ever `stop` → none, since it replies itself |
 | Query parameters | `cowboy_req:match_qs/2`, including required/optional and defaults |
 | Cookie parameters | `cowboy_req:match_cookies/2` |
 | Path parameters | the `{name}` variables in the route's path template |

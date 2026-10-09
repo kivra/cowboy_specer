@@ -173,7 +173,7 @@ local `reply/5` wrapper, a `match_qs/2` list built at runtime, or an
                 %% function's Nth argument. Resolved against that function's
                 %% call sites in a second pass -- see resolve_facts/2.
               | {reply_arg, fa(), pos_integer(), map()}
-              | {accept_result, true | false | created | see_other}.
+              | {accept_result, true | false | created | see_other | stop}.
 
 %%%_ * API -------------------------------------------------------------
 
@@ -381,7 +381,10 @@ operation(Kind, Method, Clauses, Graph, Facts, Provided, Accepted, PathParams) -
      , parameters =>
            sort_params(dedup_params(PathParams ++ [P || {param, P} <- Fs]))
      , replies => Replies
-     , implied => implied_statuses(Kind, Method, Fs)
+     , implied =>
+           implied_statuses(Kind, Method,
+                            accept_facts(Method, Clauses, Graph, Facts,
+                                         Accepted))
      , auth => lists:member(auth, Fs) orelse
                requires_auth(Clauses) orelse
                maps:is_key(401, Replies)
@@ -474,11 +477,26 @@ implied_statuses(rest, ~"DELETE", _Fs) ->
 implied_statuses(rest, Method, Fs) when Method =:= ~"POST";
                                         Method =:= ~"PUT";
                                         Method =:= ~"PATCH" ->
-    case lists:usort([accept_status(R) || {accept_result, R} <- Fs]) of
+    case lists:usort([R || {accept_result, R} <- Fs]) of
+        %% Nothing literal to go on: assume the usual `true'.
         [] -> [204];
-        Statuses -> Statuses
+        %% It only ever stops, so it replies itself, and cowboy_rest derives
+        %% nothing -- whatever it replies is among the handler's replies.
+        [stop] -> [];
+        Results -> lists:usort([accept_status(R) || R <- Results, R =/= stop])
     end;
 implied_statuses(rest, _Method, _Fs) ->
+    [].
+
+%% What the accept callback can return, read from it and from what it calls --
+%% not from every callback the method reaches, where an is_authorized/2
+%% answering `{true, Req, State}' would read as the accept callback's `true'.
+accept_facts(Method, Clauses, Graph, Facts, Accepted)
+  when Method =:= ~"POST"; Method =:= ~"PUT"; Method =:= ~"PATCH" ->
+    Roots = [{F, 2} || {_CT, F} <- Accepted, maps:is_key({F, 2}, Clauses)],
+    [Fact || FA <- reachable(Roots, Graph),
+             {accept_result, _} = Fact <- maps:get(FA, Facts, [])];
+accept_facts(_Method, _Clauses, _Graph, _Facts, _Accepted) ->
     [].
 
 accept_status(true) -> 204;
@@ -683,7 +701,7 @@ return_facts(Cs) ->
     [{accept_result, R} || E <- return_exprs(Cs), {ok, R} <- [accept_result(E)]].
 
 accept_result({tuple, _, [{atom, _, V}, _Req, _State]})
-  when V =:= true; V =:= false ->
+  when V =:= true; V =:= false; V =:= stop ->
     {ok, V};
 accept_result({tuple, _, [{tuple, _, [{atom, _, V}, _URI]}, _Req, _State]})
   when V =:= created; V =:= see_other ->
